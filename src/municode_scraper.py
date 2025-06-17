@@ -3,8 +3,10 @@ MUNICODE SCRAPER
 
 Scrapes library.municode.com for municipality codes
 
+Notes: something really similar should be done with codelibrary.amlegal.com
+
 Authors: Chenghao Li, 
-Org: University of Toronto: School of Cities
+Org: University of Toronto - School of Cities
 """
 
 import time
@@ -90,10 +92,16 @@ class MuniCodeCrawler:
         soup = BeautifulSoup(self.browser.page_source, "html.parser")
         items = soup.select("a[class=index-link]")
         return {item.text.lower(): item["href"] for item in items}
+    
+    def scrape_states(self):
+        return self.scrape_index_link()
+    
+    def scrape_cities(self):
+        return self.scrape_index_link()
 
     def scrape_codes(self, depth=0):
         """
-        Scrapes codes from municpality page with depth
+        Scrapes codes from municipality page with depth
 
         :param self:
         :param title: whether or not we are looking for the titles
@@ -109,27 +117,37 @@ class MuniCodeCrawler:
             if depth != 0 or "title" in code_text.lower():
                 result[code_text] = code["href"]
         return result
+
+    def scrape_titles(self):
+        return self.scrape_codes(0)
+
+    def scrape_chapters(self):
+        return self.scrape_codes(2)
+
+    def scrape_articles(self):
+        return self.scrape_codes(3)
+
     
 
 def main():
     bob = MuniCodeCrawler()
     bob.go() # goes to home page of municode
-    states = bob.scrape_index_link() # gets a dict of states
+    states = bob.scrape_states() # gets a dict of states
     print(states)
     bob.go(states["california"]) # goes to california via the results of states
-    muni = bob.scrape_index_link() # gets a dict of municipalities in the state of california
+    muni = bob.scrape_cities() # gets a dict of municipalities in the state of california
     print(muni)
     bob.go(muni["tracy"]) # goes to tracy
-    titles = bob.scrape_codes() # grabs all the titles for tracy
+    titles = bob.scrape_titles() # grabs all the titles for tracy
     print(titles)
     bob.go(titles["Title 5 - SANITATION AND HEALTH"]) # scrapes the chapters in title 5
-    more_chapters = bob.scrape_codes(2)
+    more_chapters = bob.scrape_chapters()
     print(more_chapters)
     bob.go(titles["Title 4 - PUBLIC WELFARE, MORALS AND CONDUCT"]) # access title 4 for tracy
-    chapters = bob.scrape_codes(2) # scrapes the chapters in title 4
+    chapters = bob.scrape_chapters() # scrapes the chapters in title 4
     print(chapters)
     bob.go(chapters["Chapter 4.12 - MISCELLANEOUS REGULATIONS"]) # access chapter
-    articles = bob.scrape_codes(3) # scrapes the articles
+    articles = bob.scrape_articles() # scrapes the articles
     print(articles)
 
 
