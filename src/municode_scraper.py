@@ -11,6 +11,7 @@ class MuniCodeCrawler:
         Create new MuniCodeCrawler Object
 
         :param self:
+        :return: returns new object
         """
         chrome_options = webdriver.ChromeOptions()
         self.browser = webdriver.Chrome(options = chrome_options)
@@ -22,23 +23,42 @@ class MuniCodeCrawler:
 
         :param self:
         :param url: url to set object to
+        :return:
         """
         self.url = url
     
     def take_snapshot(self):
+        """
+        Takes a html snapshot of current page
+
+        :param self:
+        :return:
+        """
         with open("snapshot.html", "w", encoding="utf-8") as f:
             f.write(self.browser.page_source)
     
-    def retrieve_html(self):
+    def go(self):
+        """
+        Goes to current url and waits for loading to finish 
+
+        :param self:
+        :return:
+        """
         self.browser.get(self.url)
         buffer_xpath = """/html/body/div[2]/div[2]/ui-view/div/div/div/p/span/i"""
         wait = WebDriverWait(self.browser, 2)
         wait.until(EC.invisibility_of_element_located((By.XPATH, buffer_xpath)))
     
     def scrape_states(self):
+        """
+        Scrapes states from page, with state name tied to the link on municode with that states municipalities
+
+        :param self:
+        :return: dictionary in the format {[state_name]: [link to state muni]}
+        """
         soup = BeautifulSoup(self.browser.page_source, "html.parser")
         states = soup.select("a[class=index-link]")
-        return {state.text.lower():state["href"] for state in states}
+        return {state.text.lower(): state["href"] for state in states}
     
 
 def main():
