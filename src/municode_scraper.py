@@ -93,6 +93,10 @@ class MuniCodeCrawler:
         items = soup.select("a[class=index-link]")
         return {item.text.lower(): item["href"] for item in items}
     
+    """
+    these are a little redundant but it's ok
+    """
+
     def scrape_states(self):
         return self.scrape_index_link()
     
@@ -118,6 +122,10 @@ class MuniCodeCrawler:
                 result[code_text] = code["href"]
         return result
 
+    """
+    redundant again, but it makes it a litte easier to understand
+    """
+
     def scrape_titles(self):
         return self.scrape_codes(0)
 
@@ -126,6 +134,15 @@ class MuniCodeCrawler:
 
     def scrape_articles(self):
         return self.scrape_codes(3)
+    
+    def scrape_text(self):
+        """
+        Scrapes text from code on page
+
+        :param self:
+        :return: string of the output
+        """
+
 
     
 
@@ -149,6 +166,8 @@ def main():
     bob.go(chapters["Chapter 4.12 - MISCELLANEOUS REGULATIONS"]) # access chapter
     articles = bob.scrape_articles() # scrapes the articles
     print(articles)
+    bob.go(articles["Article 14. - Soliciting and Aggressive Solicitation"])
+
 
 
 
