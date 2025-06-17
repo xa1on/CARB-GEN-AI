@@ -106,7 +106,7 @@ class MuniCodeCrawler:
         for code in codes:
             code = code.select("a[class=toc-item-heading]")[0]
             code_text = code.text.replace('\n', '')
-            if depth != 0 or code_text[:5].lower() == "title":
+            if depth != 0 or "title" in code_text.lower():
                 result[code_text] = code["href"]
         return result
     
