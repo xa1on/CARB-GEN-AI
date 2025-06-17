@@ -1,3 +1,13 @@
+"""
+MUNICODE SCRAPER
+
+Scrapes library.municode.com for municipality codes
+
+Authors: Chenghao Li, 
+Org: University of Toronto: School of Cities
+"""
+
+
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
