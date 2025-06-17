@@ -51,7 +51,7 @@ class MuniCodeCrawler:
     
     def take_snapshot(self):
         """
-        Takes a html snapshot of current page
+        Takes a .html snapshot file of current page
 
         :param self:
         :return:
@@ -102,7 +102,7 @@ class MuniCodeCrawler:
         """
         result = {}
         soup = BeautifulSoup(self.browser.page_source, "html.parser")
-        codes = soup.find_all("li", {'depth': depth})
+        codes = soup.find_all("li", {"depth": depth})
         for code in codes:
             code = code.select("a[class=toc-item-heading]")[0]
             code_text = code.text.replace('\n', '')
@@ -113,22 +113,26 @@ class MuniCodeCrawler:
 
 def main():
     bob = MuniCodeCrawler()
-    bob.go()
-    states = bob.scrape_index_link()
+    bob.go() # goes to home page of municode
+    states = bob.scrape_index_link() # gets a dict of states
     print(states)
-    bob.go(states['california'])
-    muni = bob.scrape_index_link()
+    bob.go(states["california"]) # goes to california via the results of states
+    muni = bob.scrape_index_link() # gets a dict of municipalities in the state of california
     print(muni)
-    bob.go(muni['tracy'])
-    titles = bob.scrape_codes()
+    bob.go(muni["tracy"]) # goes to tracy
+    titles = bob.scrape_codes() # grabs all the titles for tracy
     print(titles)
-    bob.go(titles['Title 4 - PUBLIC WELFARE, MORALS AND CONDUCT'])
-    chapters = bob.scrape_codes(2)
-    print(chapters)
-    bob.go(titles['Title 5 - SANITATION AND HEALTH'])
+    bob.go(titles["Title 5 - SANITATION AND HEALTH"]) # scrapes the chapters in title 5
     more_chapters = bob.scrape_codes(2)
     print(more_chapters)
+    bob.go(titles["Title 4 - PUBLIC WELFARE, MORALS AND CONDUCT"]) # access title 4 for tracy
+    chapters = bob.scrape_codes(2) # scrapes the chapters in title 4
+    print(chapters)
+    bob.go(chapters["Chapter 4.12 - MISCELLANEOUS REGULATIONS"]) # access chapter
+    articles = bob.scrape_codes(3) # scrapes the articles
+    print(articles)
 
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
