@@ -2,3 +2,4 @@
 *-snap.html
 *test.md
 *.env
+__pycache__
