@@ -148,18 +148,64 @@ class MuniCodeCrawler:
         :param self:
         :return: string of the output in markdown format
         """
+        
         def text_selector(tag):
-            # only select text with h2, h3, or p tags
-            return tag.name == "h2" or tag.name == "h3" or tag.name == "p"
+            # only select text with h2, h3, p, table tags
+            return tag.name == "h2" or tag.name == "h3" or tag.name == "p" or tag.name == "table"
+        
+        def get_row_num(table):
+            # get the total number of rows in a table
+            body = table.select_one("tbody")
+            row = body.select_one("tr")
+            items = row.select("td")
+            total = 0
+            for item in items:
+                if item.has_attr("colspan"):
+                    total += int(item.get("colspan"))
+                else:
+                    total += 1
+            return total
 
+        def rows_text(parent, type):
+            # converts table rows into markdown text
+            rows = parent.select("tr")
+            result = ""
+            for row in rows:
+                items = row.select(type)
+                for item in items:
+                    text = ""
+                    splits = item.text.split('\n')
+                    for line in splits:
+                        text += line.strip() + " "
+                    result += f"|{text}{("|" * (int(item.get("colspan")[0]) - 1)) if item.has_attr("colspan") else ""}"
+                result += "|\n"
+            return result
+        
         result = ""
         text_block = self.soup.select_one("ul.chunks.list-unstyled.small-padding") # contains the text
-        text = text_block.find_all(text_selector)
         previous_line_incr = 0
+        text = text_block.find_all(text_selector)
+
         for line in text:
             if line.name == "h2" or line.name == "h3":
                 result += "#" * int(line.name[1]) + ' ' + line.select_one("div[class=chunk-title]").text + '\n'
-            else:
+            elif line.name == "table":
+                num_rows = get_row_num(line)
+                heads = line.select("thead")
+                result += '\n'
+                if len(heads) == 0:
+                    result += '|' * (num_rows + 1) + '\n'
+                else:
+                    for head in heads:
+                        result += rows_text(head, "th")
+                result += '|' + "-|" * num_rows + '\n'
+                bodies = line.select("tbody")
+                if len(bodies) == 0:
+                    result += '|' * (num_rows + 1) + '\n'
+                else:
+                    for body in bodies:
+                        result += rows_text(body, "td")
+            elif line.name == "p":
                 # splitting to remove all trailing white-space
                 split = line.text.split('\n')
                 insert_text = ""
@@ -174,15 +220,15 @@ class MuniCodeCrawler:
                     if previous_line_incr:
                         previous_line_incr = 0
                 result += insert_text
-        #with open("test.md", "w", encoding="utf-8") as f: # for testing purposes
-            #f.write(result)
+        with open("test.md", "w", encoding="utf-8") as f: # for testing purposes
+            f.write(result)
         return result
     
 
 def main():
     muni_scraper = MuniCodeCrawler()
     muni_scraper.go("https://library.municode.com/ca/milpitas/codes/code_of_ordinances?nodeId=TITXIZOPLAN_CH10ZO_S4REZOST_XI-10-4.02REUSRE")
-    print(muni_scraper.scrape_text())
+    muni_scraper.scrape_text()
     """
     states = muni_scraper.scrape_states() # gets a dict of states
     print(states)
