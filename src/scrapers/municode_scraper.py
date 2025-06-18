@@ -119,8 +119,8 @@ class MuniCodeCrawler:
         for code in codes:
             code = code.select("a[class=toc-item-heading]")[0]
             code_text = code.text.replace('\n', '')
-            if depth != 0 or "title" in code_text.lower():
-                result[code_text] = code["href"]
+            #if depth != 0 or "title" in code_text.lower(): # unfortunately, not all cities call them titles.
+            result[code_text] = code["href"]
         return result
     
     """
@@ -221,8 +221,8 @@ class MuniCodeCrawler:
                     if previous_line_incr:
                         previous_line_incr = 0
                 result += insert_text
-        with open("test.md", "w", encoding="utf-8") as f: # for testing purposes
-            f.write(result)
+        #with open("test.md", "w", encoding="utf-8") as f: # for testing purposes
+            #f.write(result)
         return result
     
 

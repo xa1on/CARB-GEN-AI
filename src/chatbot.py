@@ -28,7 +28,7 @@ def main():
     random_titles = random.sample(list(muni_titles.keys()), 3) # random 3 titles to be used as example in the prompt
     query = input("Question: ")
     #query = "What is the minimum lot size for a residential care facility?"
-    prompt = f"""You are a helpful city policy analyst. Select 3 of the following titles that best match this query: "{query}". Reply only with the 3 title names with no extra spaces, punctuation, only the exact names of the titles in a new-line separated list order from best to worst with no modification. Here is the list of titles for the municipality:\n{titles_list}.\nExample: {random_titles[0]}\n{random_titles[1]}\n{random_titles[2]}"""
+    prompt = f"""You are a helpful city policy analyst. Select 3 of the following titles/chapters that best match this query: "{query}". Reply only with the 3 title/chapter names with no extra spaces, punctuation, only the exact names of the titles/chapters in a new-line separated list order from best to worst with no modification. DO NOT INCLUDE SECTIONS THAT ARE NOT RELEVANT. For example, don't include the "summary history table", "dispostion table" or the "city municipal code" sections. Here is the list of sections for the municipality:\n{titles_list}.\nExample: {random_titles[0]}\n{random_titles[1]}\n{random_titles[2]}"""
     print(prompt)
 
     response = client.models.generate_content(
