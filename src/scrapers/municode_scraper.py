@@ -80,7 +80,7 @@ class MuniCodeCrawler:
         wait.until(EC.invisibility_of_element_located((By.XPATH, buffer_secondary_xpath)))
         wait.until(EC.visibility_of_element_located((By.XPATH, loading_complete_xpath)))
         wait.until(EC.visibility_of_element_located((By.XPATH, google_translate_xpath)))
-        self.browser.implicitly_wait(0.25) # just to make 100% sure no errors occur. not ideal, but I can't seem to find whats not allowing it to fully load
+        self.browser.implicitly_wait(1) # just to make 100% sure no errors occur. not ideal, but I can't seem to find whats not allowing it to fully load
         # self.take_snapshot() # for debugging purposes
         self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
     
@@ -93,16 +93,17 @@ class MuniCodeCrawler:
         """
         return len(self.soup.select("ul.codes-toc-list.list-unstyled")) > 0
     
-    def scrape_index_link(self):
+    def scrape_index_link(self, requires_code=False):
         """
         Scrapes any items with index-link class from page, with name tied to the link.
         Selecting states and selecting municipalities uses index-link
 
         :param self:
+        :param requires_code: whether or not what needs to be scraped requires it link to the code of ordinances
         :return: dictionary in the format {[item_name]: [link to item]}
         """
         items = self.soup.select("a[class=index-link]")
-        return {item.text.lower(): item["href"] for item in items}
+        return {item.text.lower(): item["href"] + ("/codes/code_of_ordinances" if requires_code and "/codes/code_of_ordinances" not in item["href"] else "") for item in items}
     
     def scrape_codes(self, depth=0):
         """
@@ -130,7 +131,7 @@ class MuniCodeCrawler:
         return self.scrape_index_link()
     
     def scrape_cities(self):
-        return self.scrape_index_link()
+        return self.scrape_index_link(True)
 
     def scrape_titles(self):
         return self.scrape_codes(0)
