@@ -228,9 +228,6 @@ class MuniCodeCrawler:
 
 def main():
     muni_scraper = MuniCodeCrawler()
-    muni_scraper.go("https://library.municode.com/ca/milpitas/codes/code_of_ordinances?nodeId=TITXIZOPLAN_CH10ZO_S4REZOST_XI-10-4.02REUSRE")
-    muni_scraper.scrape_text()
-    """
     states = muni_scraper.scrape_states() # gets a dict of states
     print(states)
     muni_scraper.go(states["california"]) # goes to california via the results of states
@@ -250,7 +247,7 @@ def main():
         articles = muni_scraper.scrape_articles() # scrapes the articles
         print(articles)
         muni_scraper.go(articles["Article 14. - Soliciting and Aggressive Solicitation"]) # access chapter's article
-        print(muni_scraper.scrape_text()) # scrapes all text from article"""
+        print(muni_scraper.scrape_text()) # scrapes all text from article
 
 
 
