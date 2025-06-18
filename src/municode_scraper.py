@@ -29,8 +29,8 @@ class MuniCodeCrawler:
         """
         chrome_options = webdriver.ChromeOptions()
         self.browser = webdriver.Chrome(options = chrome_options)
-        self.browser.set_window_size(1024, 768)
-        self.url = self.home_url
+        self.browser.set_window_size(1024, 1024)
+        self.go(self.home_url)
 
     def get_url(self):
         """
@@ -72,14 +72,26 @@ class MuniCodeCrawler:
             self.set_url(url)
         self.browser.get(self.url)
         buffer_main_xpath = """/html/body/div[2]/div[2]/ui-view/div/div/div/p/span/i""" # main initializing application spinning thing
-        buffer_secondary_xpath = """/html/body/div[2]/div[2]/div/div/span/i""" # secondary loading thing
+        buffer_secondary_xpath = """/html/body/div[2]/div[2]/ui-view/div/div/div/p/span/i""" # secondary loading thing
         loading_complete_xpath = """/html/body/div[2]/div[2]/div/div/span""" # find hidden loading complete item
+        google_translate_xpath = """/html/body/header/div/div/div[3]/div/ul/li[3]/div/div""" # path for google translate widget. usually a good indicator that it has fully loaded in
         wait = WebDriverWait(self.browser, 7.5)
         wait.until(EC.invisibility_of_element_located((By.XPATH, buffer_main_xpath)))
         wait.until(EC.invisibility_of_element_located((By.XPATH, buffer_secondary_xpath)))
-        wait.until(EC.presence_of_element_located((By.XPATH, loading_complete_xpath)))
-        self.browser.implicitly_wait(1) # this is not good. we should try and figure out a more foolproof way of ensuring the page loads.
+        wait.until(EC.visibility_of_element_located((By.XPATH, loading_complete_xpath)))
+        wait.until(EC.visibility_of_element_located((By.XPATH, google_translate_xpath)))
+        self.browser.implicitly_wait(0.25) # just to make 100% sure no errors occur
         # self.take_snapshot() # for debugging purposes
+        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
+    
+    def contains_child(self):
+        """
+        Checks if current page contains any children pages. (ex: a chapter contains sub-chapers/articles/sections)
+
+        :param self:
+        :return: True/False depending on whether or not child page exists
+        """
+        return len(self.soup.select("ul.codes-toc-list.list-unstyled")) > 0
     
     def scrape_index_link(self):
         """
@@ -89,8 +101,7 @@ class MuniCodeCrawler:
         :param self:
         :return: dictionary in the format {[item_name]: [link to item]}
         """
-        soup = BeautifulSoup(self.browser.page_source, "html.parser")
-        items = soup.select("a[class=index-link]")
+        items = self.soup.select("a[class=index-link]")
         return {item.text.lower(): item["href"] for item in items}
     
     def scrape_codes(self, depth=0):
@@ -103,8 +114,7 @@ class MuniCodeCrawler:
         :return: dictionary in the format {[code_name]: [link to code]}
         """
         result = {}
-        soup = BeautifulSoup(self.browser.page_source, "html.parser")
-        codes = soup.find_all("li", {"depth": depth})
+        codes = self.soup.find_all("li", {"depth": depth})
         for code in codes:
             code = code.select("a[class=toc-item-heading]")[0]
             code_text = code.text.replace('\n', '')
@@ -143,8 +153,7 @@ class MuniCodeCrawler:
             return tag.name == "h2" or tag.name == "h3" or tag.name == "p"
 
         result = ""
-        soup = BeautifulSoup(self.browser.page_source, "html.parser")
-        text_block = soup.select_one("ul.chunks.list-unstyled.small-padding") # contains the text
+        text_block = self.soup.select_one("ul.chunks.list-unstyled.small-padding") # contains the text
         text = text_block.find_all(text_selector)
         previous_line_incr = 0
         for line in text:
@@ -172,7 +181,6 @@ class MuniCodeCrawler:
 
 def main():
     muni_scraper = MuniCodeCrawler()
-    muni_scraper.go() # goes to home page of municode
     states = muni_scraper.scrape_states() # gets a dict of states
     print(states)
     muni_scraper.go(states["california"]) # goes to california via the results of states
@@ -188,10 +196,11 @@ def main():
     chapters = muni_scraper.scrape_chapters() # scrapes the chapters in title 4
     print(chapters)
     muni_scraper.go(chapters["Chapter 4.12 - MISCELLANEOUS REGULATIONS"]) # access chapter
-    articles = muni_scraper.scrape_articles() # scrapes the articles
-    print(articles)
-    muni_scraper.go(articles["Article 14. - Soliciting and Aggressive Solicitation"]) # access chapter's article
-    print(muni_scraper.scrape_text()) # scrapes all text from article
+    if (muni_scraper.contains_child()): # checks if current page has any children
+        articles = muni_scraper.scrape_articles() # scrapes the articles
+        print(articles)
+        muni_scraper.go(articles["Article 14. - Soliciting and Aggressive Solicitation"]) # access chapter's article
+        print(muni_scraper.scrape_text()) # scrapes all text from article
 
 
 
