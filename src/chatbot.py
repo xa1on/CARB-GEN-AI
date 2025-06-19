@@ -7,7 +7,31 @@ from google.genai import types
 
 load_dotenv()
 GOOGLE_API_KEY = os.getenv('GOOGLE')
-MAX_BATCH_AMOUNT = 3 # maximum number of articles/titles or whatever you want ordered
+MAX_BATCH_AMOUNT = 4 # maximum number of articles/titles or whatever you want ordered
+
+def thinking_query(client, prompt, thinking_budget=-1):
+    result = {
+        "think": "",
+        "response": "" 
+    }
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            thinking_config=types.ThinkingConfig(
+                include_thoughts=True,
+                thinking_budget=thinking_budget
+            )
+        )
+    )
+    for part in response.candidates[0].content.parts:
+        if not part.text:
+            continue
+        if part.thought:
+            result["think"] += part.text
+        else:
+            result["response"] += part.text
+    return result
 
 def key_list(dict, seperator=", "):
     result = ""
@@ -31,62 +55,34 @@ def main():
         print(city)
     muni = input("Municipality: ").lower()
     municode_nav.go(muni_cities[muni]) # go to selected city
+    query = input("Question: ")
     #municode_nav.go("https://library.municode.com/ca/yreka/codes/code_of_ordinances")
     muni_titles = municode_nav.scrape_titles() # grab titles
     titles_list = key_list(muni_titles)
     batch_size = min(len(muni_titles), MAX_BATCH_AMOUNT)
     random_titles = random_keys(muni_titles, batch_size) # random 3 titles to be used as example in the prompt
-    query = input("Question: ")
     #query = "What is the minimum lot size for a residential care facility?"
-    prompt = f"""You are a helpful city policy analyst. Select {batch_size} of the following titles/chapters that best match this query: "{query}". Reply only with the {batch_size} title/chapter names with no extra spaces, punctuation, only the exact names of the titles/chapters in a new-line separated list order from best to worst (most relevant to least relevant) with no modification. DO NOT INCLUDE SECTIONS THAT ARE NOT RELEVANT. For example, don't include the "summary history table", "dispostion table" or the "city municipal code" sections. Here is the list of sections for the municipality:\n{titles_list}.\nExample: {random_titles}"""
+    prompt = f"""You are a helpful city policy analyst. Select {batch_size} of the following titles/chapters that best match this query: "{query}". Reply only with the {batch_size} title/chapter names with no extra spaces, punctuation, only the exact names of the titles/chapters in a new-line separated list order from best to worst (most relevant to least relevant) with no modification. DO NOT INCLUDE SECTIONS THAT ARE NOT RELEVANT. For example, don't include the "summary history table", "dispostion table" or the "city municipal code" sections.\nHere is the list of sections for the municipality:\n\n{titles_list}.\n\nExample of response format: {random_titles}"""
     print(prompt)
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            thinking_config=types.ThinkingConfig(
-                include_thoughts=True
-            )
-        )
-    )
-    
-    for part in response.candidates[0].content.parts:
-        if not part.text:
-            continue
-        if part.thought:
-            print(f"think: {part.text}\n")
-        else:
-            print(f"answer: {part.text}\n")
+    response = thinking_query(client, prompt, 0)
+    print(response["think"])
+    print(response["response"])
 
-    selected_titles = response.text.split('\n')
+    selected_titles = response["response"].split('\n')
     municode_nav.go(muni_titles[selected_titles[0]])
     muni_chapters = municode_nav.scrape_chapters()
     chapter_list = key_list(muni_chapters)
     batch_size = min(len(muni_chapters), MAX_BATCH_AMOUNT)
     random_chapters = random_keys(muni_chapters, batch_size)
 
-    prompt = f"""You are a helpful city policy analyst. Select {batch_size} of the following chapters/articles that best match this query: "{query}". Reply only with the {batch_size} chapters/articles names with no extra spaces, punctuation, only the exact names of the chapters/articles in a new-line separated list order from best to worst (most relevant to least relevant) with no modification. If none are relevant, reply with ONLY the word "NONE" in all caps. Here is the list of chapters/articles for {selected_titles[0]}:\n{chapter_list}.\nExample: {random_chapters}"""
+    prompt = f"""You are a helpful city policy analyst. Select {batch_size} of the following chapters/articles that best match this query: "{query}". Reply only with the {batch_size} chapters/articles names with no extra spaces, punctuation, only the exact names of the chapters/articles in a new-line separated list order from best to worst (most relevant to least relevant) with no modification. If none are relevant, reply with ONLY the word "NONE" in all caps.\nHere is the list of chapters/articles for {selected_titles[0]}:\n{chapter_list}.\n\nExample: {random_chapters}"""
 
     print(prompt)
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            thinking_config=types.ThinkingConfig(
-                include_thoughts=True
-            )
-        )
-    )
-    
-    for part in response.candidates[0].content.parts:
-        if not part.text:
-            continue
-        if part.thought:
-            print(f"think: {part.text}\n")
-        else:
-            print(f"answer: {part.text}\n")
+    response = thinking_query(client, prompt, 0)
+    print(response["think"])
+    print(response["response"])
 
 
 if __name__ == "__main__":
