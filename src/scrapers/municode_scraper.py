@@ -117,8 +117,8 @@ class MuniCodeCrawler:
         result = {}
         codes = self.soup.find_all("li", {"depth": depth})
         for code in codes:
-            code = code.select("a[class=toc-item-heading]")[0]
-            code_text = code.text.replace('\n', '')
+            code = code.select_one("a[class=toc-item-heading]")
+            code_text = code.find("span", {"data-ng-bind": "::node.Heading"}).text.replace('\n', '')
             #if depth != 0 or "title" in code_text.lower(): # unfortunately, not all cities call them titles.
             result[code_text] = code["href"]
         return result
