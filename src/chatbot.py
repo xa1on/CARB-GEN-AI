@@ -20,7 +20,7 @@ def log(text):
     with open("log.txt", "a", encoding="utf-8") as f:
         f.write(text)
 
-def thinking_query(client, prompt, log=False, thinking_budget=-1):
+def thinking_query(client, prompt, thinking_budget=-1, grounding=False):
     """
     Send thinking query to gemini
 
@@ -35,15 +35,22 @@ def thinking_query(client, prompt, log=False, thinking_budget=-1):
         "think": "",
         "response": "" 
     }
+    grounding_tool = types.Tool(
+        google_search=types.GoogleSearch()
+    )
+    generate_config = types.GenerateContentConfig(
+        thinking_config=types.ThinkingConfig(
+            include_thoughts=True,
+            thinking_budget=thinking_budget
+        ),
+        tools=[grounding_tool] if grounding else [],
+        temperature=0.2,
+        topP=0.95
+    )
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=prompt,
-        config=types.GenerateContentConfig(
-            thinking_config=types.ThinkingConfig(
-                include_thoughts=True,
-                thinking_budget=thinking_budget
-            )
-        )
+        config=generate_config
     )
     for part in response.candidates[0].content.parts:
         if not part.text:
@@ -110,7 +117,7 @@ def answer_from_chapters(muni_nav, client, query, title, depth=2, definitions=""
 
     prompt = f"""You are a helpful city policy analyst. Select {batch_size} of the following chapters/articles/sections that best match this query: "{query}". Reply only with the {batch_size} chapters/articles/sections names with no extra spaces, punctuation, only the exact names of the chapters/articles/sections in a new-line separated list order from best to worst (most relevant to least relevant) with no modification. If none are relevant, reply with ONLY the word "[NONE]" in all caps with square brackets.\nHere is the list of chapters/articles/sections for {title}:\n{chapter_list}.\n\nExample: {random_chapters}"""
 
-    response = thinking_query(client, prompt, True, 0)
+    response = thinking_query(client, prompt, 0)
     if "[NONE]" in response["response"]:
         return "[NONE]"
     selected_chapters = response["response"].split('\n')
@@ -122,8 +129,12 @@ def answer_from_chapters(muni_nav, client, query, title, depth=2, definitions=""
             if muni_nav.contains_child():
                 response = answer_from_chapters(muni_nav, client, query, title, depth + 1, definitions_chapter_link)
             else:
-                prompt = f"""You are a helpful city policy analyst. Answer the following question from the link {muni_chapters[current_chapter]}{f", with the definitions of terms stored here:{definitions_chapter_link}" if definitions_chapter_link else ""}. If the answer based on the information from the link is ambiguous, explain your findings. If there is no single answer, provide all the answers you find and the cases where each answer would apply. If the link does not contain any answer/answers, return ONLY the word “[NONE]”. Question: {query}"""
-                response = thinking_query(client, prompt, True, -1)["response"]
+                prompt = f"""You are a helpful city policy analyst. Answer the following question from the link {muni_chapters[current_chapter]}{f", with the definitions of terms stored here:{definitions_chapter_link}" if definitions_chapter_link else ""}. Try to use the links provided as much as possible. Extract relevant information, then ground your answer based on the extraced data. Only use search to check your work or ground your answer. Make sure you check your work. Use/cite specific sources when thinking and when replying.
+                
+                \nPlease follow the formating tips below:\nIf a numeric answer is asked for, reply ONLY with the number and units. If a yes/no question is asked, reply ONLY with "[YES]" for yes or "[NO]" for no and nothing else. If the answer based on the information from the link is ambiguous or if there is no single answer, provide all the answers you find and the cases where each answer would apply. For example: (Question: how many eggs should I use to feed my family? Answer: "family of 4: 6 eggs, family of 5: 7 eggs, family of 6+: 10 eggs").\nIf the link does not contain the answer/answers, reply ONLY with the word “[NONE]” and nothing else. Do not reply with anything not explicitly asked for. Keep your response short and within one line.
+                
+                \n\nQuestion: {query}"""
+                response = thinking_query(client, prompt, 1024, True)["response"]
             if not "[NONE]" in response:
                 return response
 
@@ -144,7 +155,7 @@ def answer(muni_nav, client, query):
 
     prompt = f"""You are a helpful city policy analyst. Select {batch_size} of the following titles/chapters that best match this query: "{query}". Reply only with the {batch_size} title/chapter names with no extra spaces, punctuation, only the exact names of the titles/chapters in a new-line separated list order from best to worst (most relevant to least relevant) with no modification. DO NOT INCLUDE SECTIONS THAT ARE NOT RELEVANT. For example, don't include the "summary history table", "dispostion table" or the "city municipal code" sections.\nHere is the list of sections for the municipality:\n\n{titles_list}.\n\nExample of response format: {random_titles}"""
 
-    response = thinking_query(client, prompt, True, 0)
+    response = thinking_query(client, prompt, 0)
     selected_titles = response["response"].split('\n')
     for attempt in range(len(selected_titles)):
         current_title = selected_titles[attempt]
@@ -156,8 +167,8 @@ def answer(muni_nav, client, query):
 
 def main():
     state = "california"
-    muni = "tracy"
-    query = "What's the minimum lot size for a residential care facility?"
+    muni = "milpitas"
+    query = "Does the city have a density bonus policy??"
     client = genai.Client(api_key=GOOGLE_API_KEY)
     municode_nav = municode.MuniCodeCrawler() # open crawler
     muni_states = municode_nav.scrape_states() # grab states
