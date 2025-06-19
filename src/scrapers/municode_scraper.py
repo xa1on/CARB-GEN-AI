@@ -28,6 +28,7 @@ class MuniCodeCrawler:
         :return: returns new object
         """
         chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_argument("--log-level=1")
         self.browser = webdriver.Chrome(options = chrome_options)
         self.browser.set_window_size(1024, 1024)
         self.go(self.home_url)
@@ -194,14 +195,14 @@ class MuniCodeCrawler:
                 num_rows = get_row_num(line)
                 heads = line.select("thead")
                 result += '\n'
-                if len(heads) == 0:
+                if not len(heads):
                     result += '|' * (num_rows + 1) + '\n'
                 else:
                     for head in heads:
                         result += rows_text(head, "th")
                 result += '|' + "-|" * num_rows + '\n'
                 bodies = line.select("tbody")
-                if len(bodies) == 0:
+                if not len(bodies):
                     result += '|' * (num_rows + 1) + '\n'
                 else:
                     for body in bodies:
@@ -211,7 +212,7 @@ class MuniCodeCrawler:
                 split = line.text.split('\n')
                 insert_text = ""
                 for text_line in split:
-                    insert_text += text_line.strip() + (' ' if len(text_line) > 0 else '')
+                    insert_text += text_line.strip() + (' ' if len(text_line) else '')
                 if line.has_attr("class") and "incr" in line.get("class")[0]:
                     current_line_incr = int(line.get("class")[0][-1:]) + 1
                     insert_text = ' ' * 4 * (current_line_incr - 1) + insert_text
