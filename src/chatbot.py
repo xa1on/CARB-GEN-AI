@@ -1,3 +1,12 @@
+"""
+MUNICODE POLICY CHATBOT
+
+Gets answer to policy questions based on municode using gemini.
+
+Authors: Chenghao Li
+Org: University of Toronto - School of Cities
+"""
+
 import scrapers.municode_scraper as municode
 import os
 import random
