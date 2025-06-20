@@ -75,13 +75,13 @@ class MuniCodeCrawler:
         buffer_main_xpath = """/html/body/div[2]/div[2]/ui-view/div/div/div/p/span/i""" # main initializing application spinning thing
         buffer_secondary_xpath = """/html/body/div[2]/div[2]/ui-view/div/div/div/p/span/i""" # secondary loading thing
         loading_complete_xpath = """/html/body/div[2]/div[2]/div/div/span""" # find hidden loading complete item
-        google_translate_xpath = """/html/body/header/div/div/div[3]/div/ul/li[3]/div/div""" # path for google translate widget. usually a good indicator that it has fully loaded in
+        google_translate_xpath = """/html/body/header/div/div/div[3]/div/ul/li[3]/div/div/span/a""" # path for google translate widget. usually a good indicator that it has fully loaded in
         wait = WebDriverWait(self.browser, 7.5)
         wait.until(EC.invisibility_of_element_located((By.XPATH, buffer_main_xpath)))
         wait.until(EC.invisibility_of_element_located((By.XPATH, buffer_secondary_xpath)))
         wait.until(EC.visibility_of_element_located((By.XPATH, loading_complete_xpath)))
         wait.until(EC.visibility_of_element_located((By.XPATH, google_translate_xpath)))
-        self.browser.implicitly_wait(1) # just to make 100% sure no errors occur. not ideal, but I can't seem to find whats not allowing it to fully load
+        #self.browser.implicitly_wait(1) # just to make 100% sure no errors occur. not ideal, but I can't seem to find whats not allowing it to fully load
         # self.take_snapshot() # for debugging purposes
         self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
     
