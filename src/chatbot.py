@@ -69,19 +69,20 @@ def thinking_query(client, prompt, thinking_budget=-1, grounding=False):
         contents=prompt,
         config=generate_config
     ):
-        for part in chunk.candidates[0].content.parts:
-            if not part.text:
-                continue
-            if part.thought:
-                if not result["think"]:
-                    log(f"### Thinking:\n\n")
-                result["think"] += part.text
-                log(part.text)
-            else:
-                if not result["response"]:
-                    log(f"### Response:\n\n")
-                result["response"] += part.text
-                log(part.text)
+        if chunk.candidates:
+            for part in chunk.candidates[0].content.parts:
+                if not part.text:
+                    continue
+                if part.thought:
+                    if not result["think"]:
+                        log(f"### Thinking:\n\n")
+                    result["think"] += part.text
+                    log(part.text)
+                else:
+                    if not result["response"]:
+                        log(f"### Response:\n\n")
+                    result["response"] += part.text
+                    log(part.text)
     log("\n\n-------------------\n\n")
     return result
 
@@ -111,7 +112,7 @@ def random_keys(dict, num):
 
     return key_list(random.sample(list(dict.keys()), num), '\n')
 
-def answer_from_chapters(muni_nav, client, query, title, depth=2, definitions=""):
+def answer_from_chapters(url, muni_nav, client, query, title, depth=2, definitions=""):
     """
     Accesses the chapter/article/section recursively until answer is found to query
 
@@ -124,7 +125,10 @@ def answer_from_chapters(muni_nav, client, query, title, depth=2, definitions=""
     :return: answer to query
     """
 
-    muni_chapters = muni_nav.scrape_codes(depth) # get chapters/articles
+    muni_chapters = None
+    while not muni_chapters:
+        muni_nav.go(url)
+        muni_chapters = muni_nav.scrape_codes(depth) # get chapters/articles
     definitions_chapter_link = definitions
     for name in muni_chapters: # find definitions, if exists.
         if "definition" in name.lower():
@@ -138,7 +142,11 @@ def answer_from_chapters(muni_nav, client, query, title, depth=2, definitions=""
 
     log(f"# Selecting chapter/article under {title}...\n\n")
 
-    prompt = f"""You are a helpful city policy analyst. Select {batch_size} of the following chapters/articles/sections that best match this query: "{query}". Reply only with the {batch_size} chapters/articles/sections names with no extra spaces, punctuation, only the exact names of the chapters/articles/sections in a new-line separated list order from best to worst (most relevant to least relevant) with no modification. Avoid anything that is repealed or obsolete. If none are relevant, reply with ONLY the word "[NONE]" in all caps with square brackets.\nHere is the list of chapters/articles/sections for {title}:\n{chapter_list}.\n\nExample: {random_chapters}"""
+    prompt = f"""You are a helpful city policy analyst. Select {batch_size} of the following chapters/articles/sections that best match this query: "{query}". Reply only with the {batch_size} chapters/articles/sections names with no extra spaces, punctuation, only the exact names of the chapters/articles/sections in a new-line separated list order from best to worst (most relevant to least relevant) with no modification. Avoid anything that is repealed or obsolete. If none are relevant, reply with ONLY the word "[NONE]" in all caps with square brackets.
+Here is the list of chapters/articles/sections for {title}:
+{chapter_list}.
+    
+Example: {random_chapters}"""
 
     response = thinking_query(client, prompt, 0) # prompt for relevant chapters/articles
 
@@ -150,22 +158,58 @@ def answer_from_chapters(muni_nav, client, query, title, depth=2, definitions=""
         current_chapter = selected_chapters[attempt]
         if muni_chapters[current_chapter]:
             log(f"## Navigating to [{current_chapter}]({muni_chapters[current_chapter]})\n\n")
-            muni_nav.go(muni_chapters[current_chapter]) # navigate to selected chapter/article
             response = ""
             if muni_nav.contains_child(): # if theres child entries, we'll use those instead to get our answer
-                response = answer_from_chapters(muni_nav, client, query, title, depth + 1, definitions_chapter_link)
+                response = answer_from_chapters(muni_chapters[current_chapter], muni_nav, client, query, title, depth + 1, definitions_chapter_link)
             else:
                 log("## ANSWERING\n\n")
-                prompt = f"""You are a helpful city policy analyst. Answer the following question from the link {muni_chapters[current_chapter]}{f", with the definitions of terms stored here:{definitions_chapter_link}" if definitions_chapter_link else ""}. Try to use the links provided as much as possible and to not stray from the chapter/article/section unless for verification/grounding purposes. Extract relevant information, then ground your answer based on the extraced data. Only use search to check your work or ground your answer. Make sure you check your work. Use and make sure to cite specific sources when coming up with your reponse.
-                \nPlease follow the formating tips below:\nIf a numeric answer is asked for, reply ONLY with the number and units. If a yes/no question is asked, reply ONLY with "[YES]" for yes or "[NO]" for no and nothing else. If the answer based on the information from the link is ambiguous or if there is no single answer, provide all the answers you find and the cases where each answer would apply. For example: (Question: how many eggs should I use to feed my family? Answer: "4 people: 6 eggs, 5 people: 7 eggs, 6+ people: 10 eggs"). MAKE SURE YOU CITE THE EXACT SECTION/CHAPTER/ARTICLE YOU FOUND YOUR INFORMATION AS WELL AS THE EXACT LANGUAGE AND WORDING WHERE YOU DERIVED YOUR RESPONSE FROM. MAKE SURE YOU CITE THE EXACT SECTION/CHAPTER/ARTICLE YOU FOUND YOUR INFORMATION AS WELL AS THE EXACT LANGUAGE AND WORDING WHERE YOU DERIVED YOUR RESPONSE FROM. If the specified documents does not contain the answer/answers, reply ONLY with the word “[NONE]” and nothing else. Do not reply with anything not explicitly asked for. Keep your response short. Keep your response short. Keep your response short. Keep your response short.
+                prompt = f"""You are a helpful city policy analyst. Answer the following question from the link {muni_chapters[current_chapter]}{f", with the definitions of terms stored here:{definitions_chapter_link}" if definitions_chapter_link else ""}.
 
-                \nQuestion: {query}"""
-                response = thinking_query(client, prompt, 1024, True)["response"] # prompt for answer to query
+Try to use the links provided as much as possible and to not stray from the chapter/article/section unless for verification/grounding purposes. Extract relevant information, then ground your answer based on the extraced data. Only use search to check your work or ground your answer. Make sure you check your work. Use and make sure to cite specific sources when coming up with your reponse.
+
+When you find your answer, respond in the following format:
+"[ANSWER]: answer
+[SOURCES]: [NAME, TITLE/CHAPTER NAME, CHAPTER/ARTICLE NAME, ARTICLE/SECTION NAME, ...], [URL: ...]"
+
+Example: 
+Question: "When/Where is it unlawful to solicit someone?"
+Response: "[ANSWER]: Within 30 feet of entrance/exit of bank/credit union, check cashig business, automated teller machine, Parking lots or parking structures after dark, Public transportation vehicle
+[SOURCES]: [Tracy City Code, Title 4 - PUBLIC WELFARE, MORALS, AND CONDUCT, Chapter 4.12 - MISCELLANEOUS REGULATIONS, Article 14 - Soliciting and Agreesive Solicitation - 4.12.1230], [URL: https://library.municode.com/ca/tracy/codes/code_of_ordinances?nodeId=TIT4PUWEMOCO_CH4.12MIRE_ART14SOAGSO]"
+
+Please follow the formating tips below for the answer part:
+
+1. Numeric question:
+    - Respond with only the number and units.
+    - Example: 5 eggs
+
+2. Binary question:
+    - ONLY respond with "[YES]" for yes or "[NO]" for no.
+    - DO NOT GIVE FULL RESPONSES
+    - Example: Q: Are ADUs required to provide parking space? A: "[YES]"
+
+3. Categorical Questions:
+    - Provide ONLY the title or name requested.
+    - Example: Q: Which entity acts as the special permit granting authority for multi-family housing? A: "Zoning Board of Appeals"
+
+4. Ambiguous or multi-answer questions:
+    - If the answer based on the information from the link is ambiguous or if there is no single answer, provide all the answers you find and the cases where each answer would apply.
+    - Example: Q: how many eggs should I use to feed my family? A: "4 people: 6 eggs, 5 people: 7 eggs, 6+ people: 10 eggs"
+
+5. No answer/answers found
+    - Reply ONLY with the word “[NONE]” and nothing else.
+
+MAKE SURE YOU CITE THE EXACT SECTION/CHAPTER/ARTICLE YOU FOUND YOUR INFORMATION AS WELL AS THE EXACT LANGUAGE AND WORDING WHERE YOU DERIVED YOUR RESPONSE FROM. MAKE SURE YOU CITE THE EXACT SECTION/CHAPTER/ARTICLE YOU FOUND YOUR INFORMATION AS WELL AS THE EXACT LANGUAGE AND WORDING WHERE YOU DERIVED YOUR RESPONSE FROM.
+If the specified documents does not contain the answer/answers, Do not reply with anything not explicitly asked for. Keep your response short. Keep your response short. Keep your response short. 
+                
+Keep your response short.
+
+Question: {query}"""
+                response = thinking_query(client, prompt, -1, True)["response"] # prompt for answer to query
             if not "[NONE]" in response: # If no answer, continue, else, continue and look at next chapter/article
                 return response
     return
 
-def answer(muni_nav, client, query):
+def answer(url, muni_nav, client, query):
     """
     Accesses the titles recursively until answer is found to query
 
@@ -174,15 +218,21 @@ def answer(muni_nav, client, query):
     :param query: input question
     :return: answer to query
     """
-
-    muni_titles = muni_nav.scrape_titles() # all titles
+    muni_titles = None
+    while not muni_titles:
+        muni_nav.go(url)
+        muni_titles = muni_nav.scrape_titles() # all titles
     titles_list = key_list(muni_titles)
     batch_size = min(len(muni_titles), MAX_BATCH_AMOUNT) # number of "relevant" titles we want
     random_titles = random_keys(muni_titles, batch_size)
 
     log("# Selecting title...\n\n")
 
-    prompt = f"""You are a helpful city policy analyst. Select {batch_size} of the following titles/chapters that best match this query: "{query}". Reply only with the {batch_size} title/chapter names with no extra spaces, punctuation, only the exact names of the titles/chapters in a new-line separated list order from best to worst (most relevant to least relevant) with no modification. DO NOT INCLUDE SECTIONS THAT ARE NOT RELEVANT. For example, don't include the "summary history table", "dispostion table" or the "city municipal code" sections.\nHere is the list of sections for the municipality:\n\n{titles_list}.\n\nExample of response format: {random_titles}"""
+    prompt = f"""You are a helpful city policy analyst. Select {batch_size} of the following titles/chapters that best match this query: "{query}". Reply only with the {batch_size} title/chapter names with no extra spaces, punctuation, only the exact names of the titles/chapters in a new-line separated list order from best to worst (most relevant to least relevant) with no modification. DO NOT INCLUDE SECTIONS THAT ARE NOT RELEVANT. For example, don't include the "summary history table", "dispostion table" or the "city municipal code" sections.
+Here is the list of sections for the municipality:
+{titles_list}.
+    
+    Example of response format: {random_titles}"""
 
     response = thinking_query(client, prompt, 0) # prompting to get relevant titles
 
@@ -191,8 +241,7 @@ def answer(muni_nav, client, query):
         current_title = selected_titles[attempt]
         if muni_titles[current_title]:
             log(f"## Navigating to [{current_title}]({muni_titles[current_title]})\n\n")
-            muni_nav.go(muni_titles[current_title]) # navigate to title
-            get_answer = answer_from_chapters(muni_nav, client, query, current_title) # get relevant chapter/article, then retrieve answer
+            get_answer = answer_from_chapters(muni_titles[current_title], muni_nav, client, query, current_title) # get relevant chapter/article, then retrieve answer
             if not "[NONE]" in get_answer: # if answer is none, continue, otherwise, return answer.
                 return get_answer
     return
@@ -204,23 +253,29 @@ def main():
     client = genai.Client(api_key=GOOGLE_API_KEY)
     municode_nav = municode.MuniCodeCrawler() # open crawler
 
-    muni_states = municode_nav.scrape_states() # grab states
+    muni_states = None
+    while not muni_states:
+        muni_states = municode_nav.scrape_states() # grab states
+        if not muni_states:
+            municode_nav.go()
+    
     state = state or input("State: ").lower()
     with open("log.md", "w", encoding="utf-8") as f: # for testing purposes
         f.write(f"#### State: {state}\n\n")
     
-    municode_nav.go(muni_states[state]) # go to selected state
-    muni_cities = municode_nav.scrape_cities() # grab cities
+    muni_cities = None
+    while not muni_cities:
+        municode_nav.go(muni_states[state]) # go to selected state
+        muni_cities = municode_nav.scrape_cities() # grab cities
     #for city in muni_cities:
         #print(city)
     
     muni = muni or input("Municipality: ").lower()
     log(f"#### Municipality: {muni}\n\n")
-    municode_nav.go(muni_cities[muni]) # go to selected city
 
     query = query or input("Question: ")
     log(f"#### Question: {query}\n\n-------------------\n\n")
-    print(answer(municode_nav, client, query)) # find relevant chapter/article and get answer
+    print(answer(muni_cities[muni], municode_nav, client, query)) # find relevant chapter/article and get answer
     
 
 
