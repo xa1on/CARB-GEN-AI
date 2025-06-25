@@ -11,6 +11,8 @@ import scrapers.municode_scraper as municode
 import os
 import random
 import time
+import json
+from pydantic import BaseModel
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -22,6 +24,65 @@ MAX_BATCH_AMOUNT = 4 # maximum number of articles/titles or whatever you want or
 LOGGING = True
 LOG_PROMPTS = False
 
+# schema for responses
+RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "binary_response": {"type": "boolean"},
+        "numeric_response": {
+            "type": "object",
+            "properties": {
+                "number": {"type": "number"},
+                "units": {"type": "string"}
+            },
+            "required": ["number", "units"]
+        },
+        "categorical_response": {
+            "type": "string"
+        },
+        "conditional_response": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "condition": {"type": "string"},
+                    "conditioned_response": {"type": "string"}
+                },
+                "required": ["condition", "conditioned_response"]
+            }
+        },
+        "sources": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "source_url": {"type": "string"},
+                    "relevant_quotation_from_source": {"type": "string"}
+                },
+                "required": ["source_url", "relevant_quotation_from_source"]
+            }
+        }
+    },
+    "required": ["sources"]
+}
+
+# TODO: use enums for titles
+SORTER_SCHEMA = {
+    "type": "array",
+    "minItems": 1,
+    "items": {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "relevance_rating": {"type": "number"}
+        },
+        "required": ["name", "relevance_rating"]
+    }
+}
+
+
 # grounding with google search
 GROUNDING = types.Tool(
     google_search=types.GoogleSearch()
@@ -32,69 +93,19 @@ CONFIGS = {
     "thinking": types.GenerateContentConfig(
         system_instruction=[
             "You are a helpful municipality policy analyst bot.",
+            """You will be prompted with questions or claification. When prompted with a question, return response accordingly.""",
             """Try to use the links the user provides as much as possible and to not stray from the chapter/article/section unless for verification/grounding purposes. Extract relevant information, then ground your answer based on the extraced data. Only use search to check your work or ground your answer. Make sure you check your work. Use and make sure to cite specific sources when coming up with your reponse. Your sources must come from official government websites or from a municipal code website like municode.""",
             """Quotes must be exact content from inside the provided link with no modification.
 Whenever you provide a quote, double check that the quote is within the link you specified. You must be able to specify one quote from within the provided links.
 Try to keep the quotes short, only containing the most relevant and important points.""",
-            """Please follow the formating tips below for the answer section:
-
-1. Numeric question:
-    - Answer should only contain the number and the units.
-    - Example: 5 eggs
-
-2. Binary question:
-    - Answer should only contain "(YES)" for yes or "(NO)" for no and "(NONE)" for no answer found.
-    - If you find no answers and encounter nothing of use, don't respond with "(NO)" and instead respond with "(NONE)"
-    - DO NOT GIVE FULL RESPONSES
-    - Example: Q: Are ADUs required to provide parking space? A: "(YES)"
-
-3. Categorical Questions:
-    - Provide ONLY the title or name requested.
-    - Example: Q: Which entity acts as the special permit granting authority for multi-family housing? A: "Zoning Board of Appeals"
-
-4. Ambiguous or multi-answer questions:
-    - If the answer based on the information from the link is ambiguous or if there is no single answer, provide all the answers you find and the cases where each answer would apply.
-    - Example: Q: how many eggs should I use to feed my family? A: "4 people: 6 eggs, 5 people: 7 eggs, 6+ people: 10 eggs"
-
-5. No answer/answers found
-    - Reply ONLY with the word “(NONE)” and nothing else.
-
-Please provide one or more quotes from which you derived your answer in the format shown below:
-
-"(ANSWER): 'answer'
-
-(QUOTE): ```'exact quote from url 1'``` [(LINK)]('url 1')
-
-(QUOTE): ```'exact quote from url 2'``` [(LINK)]('url 2')
-
-..."
-
-Examples: 
-    Question: When/Where is it unlawful to solicit someone?
-    Response: (ANSWER): Within 30 feet of entrance/exit of bank/credit union, check cashig business, automated teller machine, Parking lots or parking structures after dark, Public transportation vehicle
-
-    (QUOTES): ```4.12.1230 - Prohibited solicitation at specific locations.
-
-    (a) It shall be unlawful for any person to solicit within thirty (30) feet of any entrance or exit of a bank, credit union, check cashing business or within thirty (30) feet of an automated teller machine.
-
-    (b) It shall be unlawful for any person to solicit in any public transportation vehicle.
-
-    (c) Parking lots. It shall be unlawful for any person to solicit in any parking lot or parking structure any time after dark. "After dark" means any time for one-half hour after sunset to one-half hour before sunrise.``` [(LINK)](https://library.municode.com/ca/tracy/codes/code_of_ordinances?nodeId=TIT4PUWEMOCO_CH4.12MIRE_ART14SOAGSO)
-
-    Question: Can I direct traffic if I'm not police?
-    Response: (ANSWER): (NO)
-    (QUOTES): ``` 3.08.050 - Direction of traffic.
-
-No person, other than an officer of the Police Department or a person deputized or authorized by the Chief of Police or other person acting in any official capacity, or by authority of law shall direct or attempt to direct traffic by voice, hand or other signal.
-
-(Prior code § 3-2.203)``` [(LINK)](https://library.municode.com/ca/tracy/codes/code_of_ordinances?nodeId=TIT3PUSA_CH3.08TRRE)
-""",
-            "Keep your responses clear and concise."
+"""Make sure to check your work"""
         ],
         thinking_config=types.ThinkingConfig(
             include_thoughts=True,
             thinking_budget=-1
         ),
+        response_mime_type='application/json',
+        response_schema=RESPONSE_SCHEMA,
         tools=[GROUNDING],
         temperature=0.05,
         topP=0.15
@@ -102,9 +113,15 @@ No person, other than an officer of the Police Department or a person deputized 
     "sorter": types.GenerateContentConfig(
         system_instruction=[
             """You are a helpful municipality policy analyst bot.""",
-            """You will be asked to sort names of titles/chapters/articles/sections in terms of most relevant to least relevant from a list of names.""",
-            """Terms like "inclusionary zoning", "density bonus", "commercial linkage fees", etc. typically belong in housing chapters."""
+            """You will be asked to sort all the names of titles/chapters/articles/sections in terms of most relevant to least relevant from a list of names based on a question.""",
+            """Avoid anything that is repealed, obsolete or are sections similar to "summary history table", "dispostion table" or "city municipal code", Otherwise, as long as the title has a small amount of relevance, add it.""",
+            """Add a relevance rating for each name. (decimal number from 0-10 with 0 being the least relevant)""",
+            """The name should be the chapters/articles/sections names with no extra spaces, punctuation, only the exact names of the chapters/articles/sections in a list ordered from best to worst (most relevant to least relevant) with no modification.""",
+            """Terms like "inclusionary zoning", "density bonus", "commercial linkage fees", etc. typically are relevant to housing chapters.""",
+            """"""
         ],
+        response_mime_type='application/json',
+        response_schema=SORTER_SCHEMA,
         temperature=0.05,
         topP=0.15
     )
@@ -235,7 +252,7 @@ def answer_from_chapters(muni_nav, client, muni, url, query, title, depth=2, def
 
     log(f"## Selecting chapter/article under {title}...\n\n")
 
-    prompt = f"""Select {batch_size} of the following chapters/articles/sections that best match this query: "{query}". Reply only with the {batch_size} chapters/articles/sections names with no extra spaces, punctuation, only the exact names of the chapters/articles/sections in a new-line separated list order from best to worst (most relevant to least relevant) with no modification. Avoid anything that is repealed or obsolete. If none are relevant, reply with ONLY the word "(NONE)" in all caps with square brackets.
+    prompt = f"""Query: "{query}".
 Here is the list of chapters/articles/sections for {title}:
 {chapter_list}.
     
@@ -287,7 +304,7 @@ def answer(muni_nav, client, muni, url, query):
 
     log("## Selecting title...\n\n")
 
-    prompt = f"""Select {batch_size} of the following titles/chapters that best match this query: "{query}". Reply only with the {batch_size} title/chapter names with no extra spaces, punctuation, only the exact names of the titles/chapters in a new-line separated list order from best to worst (most relevant to least relevant) with no modification. DO NOT INCLUDE SECTIONS THAT ARE NOT RELEVANT. For example, don't include the "summary history table", "dispostion table" or the "city municipal code" sections.
+    prompt = f"""Query: "{query}".
 Here is the list of sections for the municipality:
 {titles_list}.
     
@@ -356,6 +373,7 @@ def main():
             ]
         )
     ]
+    # allow user to respond and converse with model
     while (True):
         prompt = input("Respond: ")
         log(f"### User asks:\n\n{prompt}\n\n-------------------\n\n")
