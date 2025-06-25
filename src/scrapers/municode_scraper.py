@@ -3,7 +3,7 @@ MUNICODE SCRAPER
 
 Scrapes library.municode.com for municipality codes
 
-Notes: something really similar should be done with codelibrary.amlegal.com
+Notes: something really similar should be done with codelibrary.amlegal.com and generalcode.com/library
 
 Authors: Chenghao Li
 Org: University of Toronto - School of Cities
@@ -81,7 +81,7 @@ class MuniCodeCrawler:
         wait.until(EC.invisibility_of_element_located((By.XPATH, buffer_secondary_xpath)))
         wait.until(EC.visibility_of_element_located((By.XPATH, loading_complete_xpath)))
         wait.until(EC.visibility_of_element_located((By.XPATH, google_translate_xpath)))
-        #self.browser.implicitly_wait(1) # just to make 100% sure no errors occur. not ideal, but I can't seem to find whats not allowing it to fully load
+        self.browser.implicitly_wait(0.5) # just to make 100% sure no errors occur. not ideal, but I can't seem to find whats not allowing it to fully load
         # self.take_snapshot() # for debugging purposes
         self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
     

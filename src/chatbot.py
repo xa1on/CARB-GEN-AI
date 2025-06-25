@@ -10,14 +10,108 @@ Org: University of Toronto - School of Cities
 import scrapers.municode_scraper as municode
 import os
 import random
+import time
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from google.genai.errors import ServerError
 
 load_dotenv()
 GOOGLE_API_KEY = os.getenv('GOOGLE')
 MAX_BATCH_AMOUNT = 4 # maximum number of articles/titles or whatever you want ordered
 LOGGING = True
+LOG_PROMPTS = False
+
+# grounding with google search
+GROUNDING = types.Tool(
+    google_search=types.GoogleSearch()
+)
+
+# gemini configs
+CONFIGS = {
+    "thinking": types.GenerateContentConfig(
+        system_instruction=[
+            "You are a helpful municipality policy analyst bot.",
+            """Try to use the links the user provides as much as possible and to not stray from the chapter/article/section unless for verification/grounding purposes. Extract relevant information, then ground your answer based on the extraced data. Only use search to check your work or ground your answer. Make sure you check your work. Use and make sure to cite specific sources when coming up with your reponse. Your sources must come from official government websites or from a municipal code website like municode.""",
+            """Please follow the formating tips below for the answer section:
+
+1. Numeric question:
+    - Answer should only contain the number and the units.
+    - Example: 5 eggs
+
+2. Binary question:
+    - Answer should only contain "(YES)" for yes or "(NO)" for no and "(NONE)" for no answer found.
+    - If you find no answers and encounter nothing of use, don't respond with "(NO)" and instead respond with "(NONE)"
+    - DO NOT GIVE FULL RESPONSES
+    - Example: Q: Are ADUs required to provide parking space? A: "(YES)"
+
+3. Categorical Questions:
+    - Provide ONLY the title or name requested.
+    - Example: Q: Which entity acts as the special permit granting authority for multi-family housing? A: "Zoning Board of Appeals"
+
+4. Ambiguous or multi-answer questions:
+    - If the answer based on the information from the link is ambiguous or if there is no single answer, provide all the answers you find and the cases where each answer would apply.
+    - Example: Q: how many eggs should I use to feed my family? A: "4 people: 6 eggs, 5 people: 7 eggs, 6+ people: 10 eggs"
+
+5. No answer/answers found
+    - Reply ONLY with the word “(NONE)” and nothing else.
+
+When you find your answer, respond in the following format:
+"(ANSWER): 'answer'
+
+(QUOTES): ```'quote 1'``` [(LINK)]('url 2'),
+
+```'quote 2'``` [(LINK)]('url 2'), ..."
+
+Please provide one or more quotes from which you derived your answer.
+Whenever you provide a quote, double check that the quote is within the link you specified. You must be able to specify one quote from within the provided links.
+Try to keep the quotes short, only containing the most relevant and important points.
+
+Examples: 
+    Question: When/Where is it unlawful to solicit someone?
+    Response: (ANSWER): Within 30 feet of entrance/exit of bank/credit union, check cashig business, automated teller machine, Parking lots or parking structures after dark, Public transportation vehicle
+
+    (QUOTES): ```4.12.1230 - Prohibited solicitation at specific locations.
+
+    (a) It shall be unlawful for any person to solicit within thirty (30) feet of any entrance or exit of a bank, credit union, check cashing business or within thirty (30) feet of an automated teller machine.
+
+    (b) It shall be unlawful for any person to solicit in any public transportation vehicle.
+
+    (c) Parking lots. It shall be unlawful for any person to solicit in any parking lot or parking structure any time after dark. "After dark" means any time for one-half hour after sunset to one-half hour before sunrise.``` [(LINK)](https://library.municode.com/ca/tracy/codes/code_of_ordinances?nodeId=TIT4PUWEMOCO_CH4.12MIRE_ART14SOAGSO)
+
+    Question: Can I direct traffic if I'm not police?
+    Response: (ANSWER): (NO)
+    (QUOTES): ``` 3.08.050 - Direction of traffic.
+
+No person, other than an officer of the Police Department or a person deputized or authorized by the Chief of Police or other person acting in any official capacity, or by authority of law shall direct or attempt to direct traffic by voice, hand or other signal.
+
+(Prior code § 3-2.203)``` [(LINK)](https://library.municode.com/ca/tracy/codes/code_of_ordinances?nodeId=TIT3PUSA_CH3.08TRRE)
+""",
+            "Keep your responses clear and concise."
+        ],
+        thinking_config=types.ThinkingConfig(
+            include_thoughts=True,
+            thinking_budget=-1
+        ),
+        tools=[GROUNDING],
+        temperature=0.05,
+        topP=0.15
+    ),
+    "sorter": types.GenerateContentConfig(
+        system_instruction=[
+            """You are a helpful municipality policy analyst bot.""",
+            """You will be asked to sort names of titles/chapters/articles/sections in terms of most relevant to least relevant from a list of names.""",
+            """Terms like "inclusionary zoning", "density bonus", "commercial linkage fees", etc. typically belong in housing chapters."""
+        ],
+        temperature=0.05,
+        topP=0.15
+    )
+}
+
+MODELS = {
+    "thinking": "gemini-2.5-flash",
+    "fast": "gemini-2.0-flash-lite"
+}
 
 def log(text):
     """
@@ -31,60 +125,53 @@ def log(text):
     with open("log.md", "a", encoding="utf-8") as f:
         f.write(text)
 
-def thinking_query(client, prompt, thinking_budget=-1, grounding=False):
+def thinking_query(client, prompt, config, model):
     """
     Send thinking query to gemini
 
     :param client: gemini client
     :param prompt: prompt for gemini
-    :param thinking_budget: number of tokens allocated for thinking (0: no thinking, -1: dynamic thinking)
+    :param config: gemini config
     :return: dictionary containing "think" and "response"
     """
 
-    log(f"### Prompt:\n\n{prompt}\n\n-------------------\n\n")
-    result = {
-        "think": "",
-        "response": "" 
-    }
+    try:
+        result = {
+            "think": "",
+            "response": "" 
+        }
+        if LOG_PROMPTS:
+            log(f"### Prompt:\n\n{prompt}\n\n-------------------\n\n")
 
-    # grounding with google search
-    grounding_tool = types.Tool(
-        google_search=types.GoogleSearch()
-    )
+        # gemini config
 
-    # gemini config
-    generate_config = types.GenerateContentConfig(
-        thinking_config=types.ThinkingConfig(
-            include_thoughts=True,
-            thinking_budget=thinking_budget
-        ),
-        tools=[grounding_tool] if grounding else [],
-        temperature=0.05,
-        topP=0.15
-    )
-
-    # incremental response
-    for chunk in client.models.generate_content_stream(
-        model="gemini-2.5-flash",
-        contents=prompt,
-        config=generate_config
-    ):
-        if chunk.candidates:
-            for part in chunk.candidates[0].content.parts:
-                if not part.text:
-                    continue
-                if part.thought:
-                    if not result["think"]:
-                        log(f"### Thinking:\n\n")
-                    result["think"] += part.text
-                    log(part.text)
-                else:
-                    if not result["response"]:
-                        log(f"### Response:\n\n")
-                    result["response"] += part.text
-                    log(part.text)
-    log("\n\n-------------------\n\n")
-    return result
+        # incremental response
+        for chunk in client.models.generate_content_stream(
+            model=model,
+            contents=prompt,
+            config=config
+        ):
+            if chunk.candidates and chunk.candidates[0].content.parts:
+                for part in chunk.candidates[0].content.parts:
+                    if not part or not part.text:
+                        continue
+                    if part.thought:
+                        if not result["think"]:
+                            log(f"### Thinking:\n\n")
+                        result["think"] += part.text
+                        log(part.text)
+                    else:
+                        if not result["response"]:
+                            log(f"### Response:\n\n")
+                        result["response"] += part.text
+                        log(part.text)
+        log("\n\n-------------------\n\n")
+        return result
+    except ServerError as e:
+        log(f"\n\n#### ERROR OCCURED ({e}). RETRYING IN 10 SECONDS\n\n")
+        time.sleep(10)
+        log(f"#### RETRYING...\n\n")
+        return thinking_query(client, prompt, config, model)
 
 def key_list(dict, seperator=", "):
     """
@@ -112,12 +199,14 @@ def random_keys(dict, num):
 
     return key_list(random.sample(list(dict.keys()), num), '\n')
 
-def answer_from_chapters(url, muni_nav, client, query, title, depth=2, definitions=""):
+def answer_from_chapters(muni_nav, client, muni, url, query, title, depth=2, definitions=""):
     """
     Accesses the chapter/article/section recursively until answer is found to query
 
     :param muni_nav: municode scraper object
     :param client: gemini client
+    :param muni: current municipality
+    :param url: url to page to scrape from
     :param query: input question
     :param title: title chapter is child of
     :param depth: depth of chapter. (2-usually the chapter, 3-usually the article/section)
@@ -129,6 +218,8 @@ def answer_from_chapters(url, muni_nav, client, query, title, depth=2, definitio
     while not muni_chapters:
         muni_nav.go(url)
         muni_chapters = muni_nav.scrape_codes(depth) # get chapters/articles
+        if not muni_chapters:
+            log(f"#### FAILED. RETRYING...\n\n")
     definitions_chapter_link = definitions
     for name in muni_chapters: # find definitions, if exists.
         if "definition" in name.lower():
@@ -140,81 +231,45 @@ def answer_from_chapters(url, muni_nav, client, query, title, depth=2, definitio
     batch_size = min(len(muni_chapters), MAX_BATCH_AMOUNT) # number of "relevant" chapters/articles we want
     random_chapters = random_keys(muni_chapters, batch_size)
 
-    log(f"# Selecting chapter/article under {title}...\n\n")
+    log(f"## Selecting chapter/article under {title}...\n\n")
 
-    prompt = f"""You are a helpful city policy analyst. Select {batch_size} of the following chapters/articles/sections that best match this query: "{query}". Reply only with the {batch_size} chapters/articles/sections names with no extra spaces, punctuation, only the exact names of the chapters/articles/sections in a new-line separated list order from best to worst (most relevant to least relevant) with no modification. Avoid anything that is repealed or obsolete. If none are relevant, reply with ONLY the word "[NONE]" in all caps with square brackets.
+    prompt = f"""Select {batch_size} of the following chapters/articles/sections that best match this query: "{query}". Reply only with the {batch_size} chapters/articles/sections names with no extra spaces, punctuation, only the exact names of the chapters/articles/sections in a new-line separated list order from best to worst (most relevant to least relevant) with no modification. Avoid anything that is repealed or obsolete. If none are relevant, reply with ONLY the word "(NONE)" in all caps with square brackets.
 Here is the list of chapters/articles/sections for {title}:
 {chapter_list}.
     
 Example: {random_chapters}"""
 
-    response = thinking_query(client, prompt, 0) # prompt for relevant chapters/articles
+    response = thinking_query(client, prompt, CONFIGS["sorter"], MODELS["fast"]) # prompt for relevant chapters/articles
 
-    if "[NONE]" in response["response"]: # if theres no relevant chapters/articles, go back so we can check a different title
-        return "[NONE]"
+    if not response["response"] or "(NONE)" in response["response"]: # if theres no relevant chapters/articles, go back so we can check a different title
+        return "(NONE)"
 
     selected_chapters = response["response"].split('\n') # seperate into list so we can loop through from from first to last
     for attempt in range(len(selected_chapters)):
         current_chapter = selected_chapters[attempt]
-        if muni_chapters[current_chapter]:
-            log(f"## Navigating to [{current_chapter}]({muni_chapters[current_chapter]})\n\n")
+        if current_chapter in muni_chapters:
+            log(f"### Navigating to [{current_chapter}]({muni_chapters[current_chapter]})\n\n")
             response = ""
             if muni_nav.contains_child(): # if theres child entries, we'll use those instead to get our answer
-                response = answer_from_chapters(muni_chapters[current_chapter], muni_nav, client, query, title, depth + 1, definitions_chapter_link)
+                response = answer_from_chapters(muni_nav, client, muni, muni_chapters[current_chapter], query, title, depth + 1, definitions_chapter_link)
             else:
                 log("## ANSWERING\n\n")
-                prompt = f"""You are a helpful city policy analyst. Answer the following question from the link {muni_chapters[current_chapter]}{f", with the definitions of terms stored here:{definitions_chapter_link}" if definitions_chapter_link else ""}.
-
-Try to use the links provided as much as possible and to not stray from the chapter/article/section unless for verification/grounding purposes. Extract relevant information, then ground your answer based on the extraced data. Only use search to check your work or ground your answer. Make sure you check your work. Use and make sure to cite specific sources when coming up with your reponse.
-
-When you find your answer, respond in the following format:
-"[ANSWER]: answer
-[SOURCES]: [NAME, TITLE/CHAPTER NAME, CHAPTER/ARTICLE NAME, ARTICLE/SECTION NAME, ...], [URL: ...]"
-
-Example: 
-Question: "When/Where is it unlawful to solicit someone?"
-Response: "[ANSWER]: Within 30 feet of entrance/exit of bank/credit union, check cashig business, automated teller machine, Parking lots or parking structures after dark, Public transportation vehicle
-[SOURCES]: [Tracy City Code, Title 4 - PUBLIC WELFARE, MORALS, AND CONDUCT, Chapter 4.12 - MISCELLANEOUS REGULATIONS, Article 14 - Soliciting and Agreesive Solicitation - 4.12.1230], [URL: https://library.municode.com/ca/tracy/codes/code_of_ordinances?nodeId=TIT4PUWEMOCO_CH4.12MIRE_ART14SOAGSO]"
-
-Please follow the formating tips below for the answer part:
-
-1. Numeric question:
-    - Respond with only the number and units.
-    - Example: 5 eggs
-
-2. Binary question:
-    - ONLY respond with "[YES]" for yes or "[NO]" for no.
-    - DO NOT GIVE FULL RESPONSES
-    - Example: Q: Are ADUs required to provide parking space? A: "[YES]"
-
-3. Categorical Questions:
-    - Provide ONLY the title or name requested.
-    - Example: Q: Which entity acts as the special permit granting authority for multi-family housing? A: "Zoning Board of Appeals"
-
-4. Ambiguous or multi-answer questions:
-    - If the answer based on the information from the link is ambiguous or if there is no single answer, provide all the answers you find and the cases where each answer would apply.
-    - Example: Q: how many eggs should I use to feed my family? A: "4 people: 6 eggs, 5 people: 7 eggs, 6+ people: 10 eggs"
-
-5. No answer/answers found
-    - Reply ONLY with the word “[NONE]” and nothing else.
-
-MAKE SURE YOU CITE THE EXACT SECTION/CHAPTER/ARTICLE YOU FOUND YOUR INFORMATION AS WELL AS THE EXACT LANGUAGE AND WORDING WHERE YOU DERIVED YOUR RESPONSE FROM. MAKE SURE YOU CITE THE EXACT SECTION/CHAPTER/ARTICLE YOU FOUND YOUR INFORMATION AS WELL AS THE EXACT LANGUAGE AND WORDING WHERE YOU DERIVED YOUR RESPONSE FROM.
-If the specified documents does not contain the answer/answers, Do not reply with anything not explicitly asked for. Keep your response short. Keep your response short. Keep your response short. 
-                
-Keep your response short.
+                prompt = f"""Answer the following question from the link {muni_chapters[current_chapter]}{f", with the definitions of terms stored here:{definitions_chapter_link}" if definitions_chapter_link else ""} for the municipality of {muni}.
 
 Question: {query}"""
-                response = thinking_query(client, prompt, -1, True)["response"] # prompt for answer to query
-            if not "[NONE]" in response: # If no answer, continue, else, continue and look at next chapter/article
+                response = thinking_query(client, prompt, CONFIGS["thinking"], MODELS["thinking"])["response"] # prompt for answer to query
+            if not "(NONE)" in response: # If no answer, continue, else, continue and look at next chapter/article
                 return response
     return
 
-def answer(url, muni_nav, client, query):
+def answer(muni_nav, client, muni, url, query):
     """
     Accesses the titles recursively until answer is found to query
 
     :param muni_nav: municode scraper object
     :param client: gemini client
+    :param muni: current municipality
+    :param url: url to the municode website
     :param query: input question
     :return: answer to query
     """
@@ -222,51 +277,58 @@ def answer(url, muni_nav, client, query):
     while not muni_titles:
         muni_nav.go(url)
         muni_titles = muni_nav.scrape_titles() # all titles
+        if not muni_titles:
+            log(f"#### FAILED, RETRYING ...\n\n")
     titles_list = key_list(muni_titles)
     batch_size = min(len(muni_titles), MAX_BATCH_AMOUNT) # number of "relevant" titles we want
     random_titles = random_keys(muni_titles, batch_size)
 
-    log("# Selecting title...\n\n")
+    log("## Selecting title...\n\n")
 
-    prompt = f"""You are a helpful city policy analyst. Select {batch_size} of the following titles/chapters that best match this query: "{query}". Reply only with the {batch_size} title/chapter names with no extra spaces, punctuation, only the exact names of the titles/chapters in a new-line separated list order from best to worst (most relevant to least relevant) with no modification. DO NOT INCLUDE SECTIONS THAT ARE NOT RELEVANT. For example, don't include the "summary history table", "dispostion table" or the "city municipal code" sections.
+    prompt = f"""Select {batch_size} of the following titles/chapters that best match this query: "{query}". Reply only with the {batch_size} title/chapter names with no extra spaces, punctuation, only the exact names of the titles/chapters in a new-line separated list order from best to worst (most relevant to least relevant) with no modification. DO NOT INCLUDE SECTIONS THAT ARE NOT RELEVANT. For example, don't include the "summary history table", "dispostion table" or the "city municipal code" sections.
 Here is the list of sections for the municipality:
 {titles_list}.
     
     Example of response format: {random_titles}"""
 
-    response = thinking_query(client, prompt, 0) # prompting to get relevant titles
+    response = thinking_query(client, prompt, CONFIGS["sorter"], MODELS["fast"]) # prompting to get relevant titles
 
     selected_titles = response["response"].split('\n') # seperate into list so we can loop through from from first to last
     for attempt in range(len(selected_titles)):
         current_title = selected_titles[attempt]
         if muni_titles[current_title]:
-            log(f"## Navigating to [{current_title}]({muni_titles[current_title]})\n\n")
-            get_answer = answer_from_chapters(muni_titles[current_title], muni_nav, client, query, current_title) # get relevant chapter/article, then retrieve answer
-            if not "[NONE]" in get_answer: # if answer is none, continue, otherwise, return answer.
+            log(f"### Navigating to [{current_title}]({muni_titles[current_title]})\n\n")
+            get_answer = answer_from_chapters(muni_nav, client, muni, muni_titles[current_title], query, current_title) # get relevant chapter/article, then retrieve answer
+            if not "(NONE)" in get_answer: # if answer is none, continue, otherwise, return answer.
                 return get_answer
     return
 
 def main():
     state = "california"
     muni = "milpitas"
-    query = "Which zones are Short Term Rentals allowed to be established in?"
+    query = "When it comes to affordable housing, are there Inclusionary Zoning rules?" 
     client = genai.Client(api_key=GOOGLE_API_KEY)
     municode_nav = municode.MuniCodeCrawler() # open crawler
+    if LOGGING:
+        with open("log.md", "w", encoding="utf-8") as f: # for testing purposes
+            f.write(f"# LOG\n\n")
 
     muni_states = None
     while not muni_states:
         muni_states = municode_nav.scrape_states() # grab states
         if not muni_states:
+            log(f"#### FAILED TO GET STATES, RETRYING.\n\n")
             municode_nav.go()
     
     state = state or input("State: ").lower()
-    with open("log.md", "w", encoding="utf-8") as f: # for testing purposes
-        f.write(f"#### State: {state}\n\n")
+    log(f"#### State: {state}\n\n")
     
     muni_cities = None
     while not muni_cities:
         municode_nav.go(muni_states[state]) # go to selected state
         muni_cities = municode_nav.scrape_cities() # grab cities
+        if not muni_cities:
+            log(f"#### FAILED TO GET CITIES, RETRYING ...\n\n")
     #for city in muni_cities:
         #print(city)
     
@@ -275,7 +337,7 @@ def main():
 
     query = query or input("Question: ")
     log(f"#### Question: {query}\n\n-------------------\n\n")
-    print(answer(muni_cities[muni], municode_nav, client, query)) # find relevant chapter/article and get answer
+    print(answer(municode_nav, client, muni, muni_cities[muni], query)) # find relevant chapter/article and get answer
     
 
 
