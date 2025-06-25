@@ -33,6 +33,9 @@ CONFIGS = {
         system_instruction=[
             "You are a helpful municipality policy analyst bot.",
             """Try to use the links the user provides as much as possible and to not stray from the chapter/article/section unless for verification/grounding purposes. Extract relevant information, then ground your answer based on the extraced data. Only use search to check your work or ground your answer. Make sure you check your work. Use and make sure to cite specific sources when coming up with your reponse. Your sources must come from official government websites or from a municipal code website like municode.""",
+            """Quotes must be exact content from inside the provided link with no modification.
+Whenever you provide a quote, double check that the quote is within the link you specified. You must be able to specify one quote from within the provided links.
+Try to keep the quotes short, only containing the most relevant and important points.""",
             """Please follow the formating tips below for the answer section:
 
 1. Numeric question:
@@ -56,16 +59,15 @@ CONFIGS = {
 5. No answer/answers found
     - Reply ONLY with the word “(NONE)” and nothing else.
 
-When you find your answer, respond in the following format:
+Please provide one or more quotes from which you derived your answer in the format shown below:
+
 "(ANSWER): 'answer'
 
-(QUOTES): ```'quote 1'``` [(LINK)]('url 2'),
+(QUOTE): ```'exact quote from url 1'``` [(LINK)]('url 1')
 
-```'quote 2'``` [(LINK)]('url 2'), ..."
+(QUOTE): ```'exact quote from url 2'``` [(LINK)]('url 2')
 
-Please provide one or more quotes from which you derived your answer.
-Whenever you provide a quote, double check that the quote is within the link you specified. You must be able to specify one quote from within the provided links.
-Try to keep the quotes short, only containing the most relevant and important points.
+..."
 
 Examples: 
     Question: When/Where is it unlawful to solicit someone?
@@ -125,7 +127,7 @@ def log(text):
     with open("log.md", "a", encoding="utf-8") as f:
         f.write(text)
 
-def thinking_query(client, prompt, config, model):
+def gemini_query(client, prompt, config, model):
     """
     Send thinking query to gemini
 
@@ -171,7 +173,7 @@ def thinking_query(client, prompt, config, model):
         log(f"\n\n#### ERROR OCCURED ({e}). RETRYING IN 10 SECONDS\n\n")
         time.sleep(10)
         log(f"#### RETRYING...\n\n")
-        return thinking_query(client, prompt, config, model)
+        return gemini_query(client, prompt, config, model)
 
 def key_list(dict, seperator=", "):
     """
@@ -211,7 +213,7 @@ def answer_from_chapters(muni_nav, client, muni, url, query, title, depth=2, def
     :param title: title chapter is child of
     :param depth: depth of chapter. (2-usually the chapter, 3-usually the article/section)
     :param definitions: link to the most relevant definitions section (usually empty)
-    :return: answer to query
+    :return: prompt, answer to query
     """
 
     muni_chapters = None
@@ -239,27 +241,27 @@ Here is the list of chapters/articles/sections for {title}:
     
 Example: {random_chapters}"""
 
-    response = thinking_query(client, prompt, CONFIGS["sorter"], MODELS["fast"]) # prompt for relevant chapters/articles
+    response = gemini_query(client, prompt, CONFIGS["sorter"], MODELS["fast"]) # prompt for relevant chapters/articles
 
     if not response["response"] or "(NONE)" in response["response"]: # if theres no relevant chapters/articles, go back so we can check a different title
-        return "(NONE)"
+        return prompt, {"response": "(NONE)"}
 
     selected_chapters = response["response"].split('\n') # seperate into list so we can loop through from from first to last
     for attempt in range(len(selected_chapters)):
         current_chapter = selected_chapters[attempt]
         if current_chapter in muni_chapters:
             log(f"### Navigating to [{current_chapter}]({muni_chapters[current_chapter]})\n\n")
-            response = ""
+            response = {}
             if muni_nav.contains_child(): # if theres child entries, we'll use those instead to get our answer
-                response = answer_from_chapters(muni_nav, client, muni, muni_chapters[current_chapter], query, title, depth + 1, definitions_chapter_link)
+                prompt, response = answer_from_chapters(muni_nav, client, muni, muni_chapters[current_chapter], query, title, depth + 1, definitions_chapter_link)
             else:
                 log("## ANSWERING\n\n")
                 prompt = f"""Answer the following question from the link {muni_chapters[current_chapter]}{f", with the definitions of terms stored here:{definitions_chapter_link}" if definitions_chapter_link else ""} for the municipality of {muni}.
 
 Question: {query}"""
-                response = thinking_query(client, prompt, CONFIGS["thinking"], MODELS["thinking"])["response"] # prompt for answer to query
-            if not "(NONE)" in response: # If no answer, continue, else, continue and look at next chapter/article
-                return response
+                response = gemini_query(client, prompt, CONFIGS["thinking"], MODELS["thinking"]) # prompt for answer to query
+            if not "(NONE)" in response["response"]: # If no answer, continue, else, continue and look at next chapter/article
+                return prompt, response
     return
 
 def answer(muni_nav, client, muni, url, query):
@@ -291,7 +293,7 @@ Here is the list of sections for the municipality:
     
     Example of response format: {random_titles}"""
 
-    response = thinking_query(client, prompt, CONFIGS["sorter"], MODELS["fast"]) # prompting to get relevant titles
+    response = gemini_query(client, prompt, CONFIGS["sorter"], MODELS["fast"]) # prompting to get relevant titles
 
     selected_titles = response["response"].split('\n') # seperate into list so we can loop through from from first to last
     for attempt in range(len(selected_titles)):
@@ -299,7 +301,8 @@ Here is the list of sections for the municipality:
         if muni_titles[current_title]:
             log(f"### Navigating to [{current_title}]({muni_titles[current_title]})\n\n")
             get_answer = answer_from_chapters(muni_nav, client, muni, muni_titles[current_title], query, current_title) # get relevant chapter/article, then retrieve answer
-            if not "(NONE)" in get_answer: # if answer is none, continue, otherwise, return answer.
+            print(get_answer)
+            if not "(NONE)" in get_answer[1]["response"]: # if answer is none, continue, otherwise, return answer.
                 return get_answer
     return
 
@@ -337,7 +340,44 @@ def main():
 
     query = query or input("Question: ")
     log(f"#### Question: {query}\n\n-------------------\n\n")
-    print(answer(municode_nav, client, muni, muni_cities[muni], query)) # find relevant chapter/article and get answer
+    response = answer(municode_nav, client, muni, muni_cities[muni], query) # find relevant chapter/article and get answer
+    contents = [
+        types.Content(
+            role="user",
+            parts=[
+                types.Part.from_text(text=response[0])
+            ]
+        ),
+        types.Content(
+            role="model",
+            parts=[
+                types.Part.from_text(text=response[1]["think"]),
+                types.Part.from_text(text=response[1]["response"])
+            ]
+        )
+    ]
+    while (True):
+        prompt = input("Respond: ")
+        log(f"### User asks:\n\n{prompt}\n\n-------------------\n\n")
+        contents.append(
+            types.Content(
+                role="user",
+                parts=[
+                    types.Part.from_text(text=prompt)
+                ]
+            )
+        )
+        response = gemini_query(client, contents, CONFIGS["thinking"], MODELS["thinking"])
+        contents.append(
+            types.Content(
+                role="model",
+                parts=[
+                    types.Part.from_text(text=response["think"]),
+                    types.Part.from_text(text=response["response"])
+                ]
+            )
+        )
+
     
 
 
