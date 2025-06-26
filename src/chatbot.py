@@ -40,7 +40,7 @@ RESPONSE_SCHEMA = {
         },
         "conditional_response": {
             "type": "array",
-            "minItems": 1,
+            "minItems": 2,
             "items": {
                 "type": "object",
                 "properties": {
@@ -57,9 +57,10 @@ RESPONSE_SCHEMA = {
                 "type": "object",
                 "properties": {
                     "source_url": {"type": "string"},
+                    "page_name": {"type": "string"},
                     "relevant_quotation_from_source": {"type": "string"}
                 },
-                "required": ["source_url", "relevant_quotation_from_source"]
+                "required": ["source_url", "relevant_quotation_from_source", "page_name"]
             }
         }
     },
@@ -91,17 +92,67 @@ GROUNDING = types.Tool(
 CONFIGS = {
     "thinking": types.GenerateContentConfig(
         system_instruction=[
-            "You are a helpful municipality policy analyst bot.",
-            """You will be prompted with questions or claification. When prompted with a question, return response accordingly.""",
-            """Ensure that you specify whether or not the answer to the question being asked is binary, numeric, categorical, or conditional.""",
-            """If no binary, numeric, categorical, or conditional answers are found, reply with the word "(NONE)\" and nothing else.""",
+             "You are a helpful municipality policy analyst bot.",
             """Try to use the links the user provides as much as possible and to not stray from the chapter/article/section unless for verification/grounding purposes. Extract relevant information, then ground your answer based on the extraced data. Only use search to check your work or ground your answer. Make sure you check your work. Use and make sure to cite specific sources when coming up with your reponse. Your sources must come from official government websites or from a municipal code website like municode.""",
-            """You must find and use at least one quotation, unless no answer is found.""",
-            """Quotations must be exact content from inside a link with no modification. Quotations must contain the exact wording of the document.
+            """Quotes must be exact content from inside the provided link with no modification.
 Whenever you provide a quote, double check that the quote is within the link you specified. You must be able to specify one quote from within the provided links.
 Try to keep the quotes short, only containing the most relevant and important points.""",
-"""Citations and quotations are required. Ensure you include the link to any sources you use after each quotation. YOU MUST USE WEB LINKS.""",
-"""Make sure to check your work."""
+            """Please follow the formating tips below for the answer section:
+
+1. Numeric question:
+    - Answer should only contain the number and the units.
+    - Example: 5 eggs
+
+2. Binary question:
+    - Answer should only contain "(YES)" for yes or "(NO)" for no and "(NONE)" for no answer found.
+    - If you find no answers and encounter nothing of use, don't respond with "(NO)" and instead respond with "(NONE)"
+    - DO NOT GIVE FULL RESPONSES
+    - Example: Q: Are ADUs required to provide parking space? A: "(YES)"
+
+3. Categorical Questions:
+    - Provide ONLY the title or name requested.
+    - Example: Q: Which entity acts as the special permit granting authority for multi-family housing? A: "Zoning Board of Appeals"
+
+4. Conditional:
+    - If the answer based on the information from the link is ambiguous or if there is no single answer, provide all the answers you find and the cases where each answer would apply.
+    - Provide the condition and the result of that condition.
+    - Example: Q: how many eggs should I use to feed my family? A: "4 people: 6 eggs, 5 people: 7 eggs, 6+ people: 10 eggs"
+
+5. No answer/answers found
+    - Reply ONLY with the word “(NONE)” and nothing else.
+
+Please provide one or more quotes from which you derived your answer in the format shown below:
+
+"(ANSWER): 'answer'
+
+(QUOTE): ```'exact quote from url 1'``` [('name of page')]('url 1')
+
+(QUOTE): ```'exact quote from url 2'``` [('name of page')]('url 2')
+
+..."
+
+Examples: 
+    Question: When/Where is it unlawful to solicit someone?
+    Response: (ANSWER): Within 30 feet of entrance/exit of bank/credit union, check cashig business, automated teller machine, Parking lots or parking structures after dark, Public transportation vehicle
+
+    (QUOTE): ```4.12.1230 - Prohibited solicitation at specific locations.
+
+    (a) It shall be unlawful for any person to solicit within thirty (30) feet of any entrance or exit of a bank, credit union, check cashing business or within thirty (30) feet of an automated teller machine.
+
+    (b) It shall be unlawful for any person to solicit in any public transportation vehicle.
+
+    (c) Parking lots. It shall be unlawful for any person to solicit in any parking lot or parking structure any time after dark. "After dark" means any time for one-half hour after sunset to one-half hour before sunrise.``` [(Article 14. - Soliciting and Aggressive Solicitation)](https://library.municode.com/ca/tracy/codes/code_of_ordinances?nodeId=TIT4PUWEMOCO_CH4.12MIRE_ART14SOAGSO)
+
+    Question: Can I direct traffic if I'm not police?
+    Response: (ANSWER): (NO)
+    (QUOTE): ``` 3.08.050 - Direction of traffic.
+
+No person, other than an officer of the Police Department or a person deputized or authorized by the Chief of Police or other person acting in any official capacity, or by authority of law shall direct or attempt to direct traffic by voice, hand or other signal.
+
+(Prior code § 3-2.203)``` [(Chapter 3.08 - TRAFFIC REGULATIONS)](https://library.municode.com/ca/tracy/codes/code_of_ordinances?nodeId=TIT3PUSA_CH3.08TRRE)
+""",
+            "Keep your responses clear and concise."
+            "Make sure to check your work"
         ],
         thinking_config=types.ThinkingConfig(
             include_thoughts=True,
@@ -276,18 +327,18 @@ Here is the list of title/chapters/articles/sections:
 
 Question: {query}"""
                 response = gemini_query(client, prompt, CONFIGS["thinking"], MODELS["thinking"]) # prompt for answer to query
-                if "(NONE)" in response:
+                if "(NONE)" in response["response"]:
                     response = None
                 else:
                     structured_response = gemini_query(client, response["response"], CONFIGS["structurer"], MODELS["fast"])
             if response: # If no answer, continue, else, continue and look at next title/chapter/article/section
                 return prompt, response, structured_response
-    return
+    return None, None, None
 
 def main():
     state = "california"
     muni = "milpitas"
-    query = "When it comes to affordable housing, are there Inclusionary Zoning rules?" 
+    query = "Where am i allowed to solicit?" #"When it comes to affordable housing, are there Inclusionary Zoning rules?" 
     client = genai.Client(api_key=GOOGLE_API_KEY)
     municode_nav = municode.MuniCodeCrawler() # open crawler
     if LOGGING:
@@ -335,28 +386,32 @@ def main():
             ]
         )
     ]
+    response = response[1]
     # allow user to respond and converse with model
     while (True):
         prompt = input("Respond: ")
         log(f"### User asks:\n\n{prompt}\n\n-------------------\n\n")
-        contents.append(
-            types.Content(
-                role="user",
-                parts=[
-                    types.Part.from_text(text=prompt)
-                ]
+        if prompt == "/structure":
+            print(gemini_query(client, response["response"], CONFIGS["structurer"], MODELS["fast"]))
+        else:
+            contents.append(
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_text(text=prompt)
+                    ]
+                )
             )
-        )
-        response = gemini_query(client, contents, CONFIGS["thinking"], MODELS["thinking"])
-        contents.append(
-            types.Content(
-                role="model",
-                parts=[
-                    types.Part.from_text(text=response["think"]),
-                    types.Part.from_text(text=response["response"])
-                ]
+            response = gemini_query(client, contents, CONFIGS["thinking"], MODELS["thinking"])
+            contents.append(
+                types.Content(
+                    role="model",
+                    parts=[
+                        types.Part.from_text(text=response["think"]),
+                        types.Part.from_text(text=response["response"])
+                    ]
+                )
             )
-        )
 
     
 
