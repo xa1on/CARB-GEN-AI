@@ -335,11 +335,7 @@ Question: {query}"""
                 return prompt, response, structured_response
     return None, None, None
 
-def main():
-    state = "california"
-    muni = "milpitas"
-    query = "Where am i allowed to solicit?" #"When it comes to affordable housing, are there Inclusionary Zoning rules?" 
-    client = genai.Client(api_key=GOOGLE_API_KEY)
+def init(state, muni, query, client):
     municode_nav = municode.MuniCodeCrawler() # open crawler
     if LOGGING:
         with open("log.md", "w", encoding="utf-8") as f: # for testing purposes
@@ -352,7 +348,6 @@ def main():
             log(f"#### FAILED TO GET STATES, RETRYING.\n\n")
             municode_nav.go()
     
-    state = state or input("State: ").lower()
     log(f"#### State: {state}\n\n")
     
     muni_cities = None
@@ -364,13 +359,24 @@ def main():
     #for city in muni_cities:
         #print(city)
     
-    muni = muni or input("Municipality: ").lower()
     log(f"#### Municipality: {muni}\n\n")
 
-    query = query or input("Question: ")
     log(f"#### Question: {query}\n\n-------------------\n\n")
 
-    response = answer(municode_nav, client, muni, muni_cities[muni], query) # find relevant chapter/article and get answer
+    return answer(municode_nav, client, muni, muni_cities[muni], query) # find relevant chapter/article and get answer
+
+def main():
+    client = genai.Client(api_key=GOOGLE_API_KEY)
+    state = "california"
+    muni = "milpitas"
+    query = "Where am i allowed to solicit?" #"When it comes to affordable housing, are there Inclusionary Zoning rules?" 
+    
+    state = state or input("State: ").lower()
+    muni = muni or input("Municipality: ").lower()
+    query = query or input("Question: ")
+
+    response = init(state, muni, query, client)
+
     contents = [
         types.Content(
             role="user",
@@ -392,7 +398,7 @@ def main():
         prompt = input("Respond: ")
         log(f"### User asks:\n\n{prompt}\n\n-------------------\n\n")
         if prompt == "/structure":
-            print(gemini_query(client, response["response"], CONFIGS["structurer"], MODELS["fast"]))
+            print(json.loads(gemini_query(client, response["response"], CONFIGS["structurer"], MODELS["fast"])))
         else:
             contents.append(
                 types.Content(
