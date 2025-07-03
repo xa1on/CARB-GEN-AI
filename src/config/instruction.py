@@ -1,12 +1,11 @@
 from google.genai import types
 
-THINKING_SYS_INST = [
-    "You are a helpful municipality policy analyst bot.",
-    """Try to use the links the user provides as much as possible and to not stray from the chapter/article/section unless for verification/grounding purposes. Extract relevant information, then ground your answer based on the extraced data. Only use search to check your work or ground your answer. Make sure you check your work. Use and make sure to cite specific sources when coming up with your reponse. Your sources must come from official government websites or from a municipal code website like municode.""",
-    """Quotes must be exact content from inside the provided link with no modification.
+THINKING_SYS_INST = ["You are a helpful municipality policy analyst bot.",
+"""Try to use the links the user provides as much as possible and to not stray from the chapter/article/section unless for verification/grounding purposes. Extract relevant information, then ground your answer based on the extraced data. Only use search to check your work or ground your answer. Make sure you check your work. Use and make sure to cite specific sources when coming up with your reponse. Your sources must come from official government websites or from a municipal code website like municode.""",
+"""Quotes must be exact content from inside the provided link with no modification.
 Whenever you provide a quote, double check that the quote is within the link you specified. You must be able to specify one quote from within the provided links.
 Try to keep the quotes short, only containing the most relevant and important points.""",
-            """Please follow the formating tips below for the answer section:
+"""Please follow the formating tips below for the answer section:
 
 1. Numeric question:
     - Answer should only contain the number and the units.
@@ -60,11 +59,10 @@ No person, other than an officer of the Police Department or a person deputized 
 
 (Prior code § 3-2.203)``` [(Chapter 3.08 - TRAFFIC REGULATIONS)](https://library.municode.com/ca/tracy/codes/code_of_ordinances?nodeId=TIT3PUSA_CH3.08TRRE)
 """,
-    "Keep your responses clear and concise.",
-    "Make sure to check your work",
-    "Don't hallucinate.",
-    "Don't make up information that does not exist."
-]
+"Keep your responses clear and concise.",
+"Make sure to check your work",
+"Don't hallucinate.",
+"Don't make up information that does not exist."]
 
 STRUCTURER_SYS_INST = [
     """You are a helpful municipality policy analyst bot.""",
@@ -85,47 +83,55 @@ GROUNDING = types.Tool(
     google_search=types.GoogleSearch()
 )
 
+BINARY_RESPONSE_SCHEMA = {
+    "type": "boolean"
+}
+CATEGORICAL_RESPONSE_SCHEMA = {
+    "type": "string"
+}
+NUMERIC_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "number": {"type": "number"},
+        "units": CATEGORICAL_RESPONSE_SCHEMA
+    },
+    "required": ["number", "units"]
+}
+CONDITIONAL_RESPONSE_SCHEMA = {
+    "type": "array",
+    "minItems": 2,
+    "items": {
+        "type": "object",
+        "properties": {
+            "condition": CATEGORICAL_RESPONSE_SCHEMA,
+            "conditioned_response": CATEGORICAL_RESPONSE_SCHEMA
+        },
+        "required": ["condition", "conditioned_response"]
+    }
+}
+SOURCE_RESPONSE_SCHEMA = {
+    "type": "array",
+    "minItems": 1,
+    "items": {
+        "type": "object",
+        "properties": {
+            "source_url": CATEGORICAL_RESPONSE_SCHEMA,
+            "page_name": CATEGORICAL_RESPONSE_SCHEMA,
+            "relevant_quotation_from_source": CATEGORICAL_RESPONSE_SCHEMA
+        },
+        "required": ["source_url", "relevant_quotation_from_source", "page_name"]
+    }
+}
+
 # schema for responses
 RESPONSE_SCHEMA = {
     "type": "object",
     "properties": {
-        "binary_response": {"type": "boolean"},
-        "numeric_response": {
-            "type": "object",
-            "properties": {
-                "number": {"type": "number"},
-                "units": {"type": "string"}
-            },
-            "required": ["number", "units"]
-        },
-        "categorical_response": {
-            "type": "string"
-        },
-        "conditional_response": {
-            "type": "array",
-            "minItems": 2,
-            "items": {
-                "type": "object",
-                "properties": {
-                    "condition": {"type": "string"},
-                    "conditioned_response": {"type": "string"}
-                },
-                "required": ["condition", "conditioned_response"]
-            }
-        },
-        "sources": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-                "type": "object",
-                "properties": {
-                    "source_url": {"type": "string"},
-                    "page_name": {"type": "string"},
-                    "relevant_quotation_from_source": {"type": "string"}
-                },
-                "required": ["source_url", "relevant_quotation_from_source", "page_name"]
-            }
-        }
+        "binary_response": BINARY_RESPONSE_SCHEMA,
+        "numeric_response": NUMERIC_RESPONSE_SCHEMA,
+        "categorical_response": CATEGORICAL_RESPONSE_SCHEMA,
+        "conditional_response": CONDITIONAL_RESPONSE_SCHEMA,
+        "sources": SOURCE_RESPONSE_SCHEMA
     },
     "required": ["sources"]
 }
@@ -138,7 +144,7 @@ SORTER_SCHEMA = {
     "items": {
         "type": "object",
         "properties": {
-            "name": {"type": "string"},
+            "name": CATEGORICAL_RESPONSE_SCHEMA,
             "relevance_rating": {"type": "number"}
         },
         "required": ["name", "relevance_rating"]

@@ -20,7 +20,7 @@ from google.genai.errors import ServerError
 load_dotenv()
 GOOGLE_API_KEY = os.getenv('GOOGLE') # google cloud api key
 LOGGING = True # whether or not log.md is generated
-LOG_PROMPTS = False # logs prompts generated
+LOG_PROMPTS = True # logs prompts generated
 
 
 # model options
@@ -28,6 +28,21 @@ MODELS = {
     "thinking": "gemini-2.5-flash",
     "fast": "gemini-2.0-flash-lite"
 }
+
+SORTER_QUERY_TEMPLATE = """Query: "{query}".
+Here is the list of title/chapters/articles/sections:
+
+{name_list}"""
+
+RESPONSE_QUERY_TEMPLATE = """Answer the following question on the city/municipality of {muni} from the links provided below for the muni/city of {muni}:
+
+{muni} Code {current_name}: {muni_code_url}
+
+{additional_links}
+
+
+
+Question: {query}\n Response: """
 
 def log(text):
     """
@@ -54,10 +69,13 @@ def gemini_query(client, prompt, config, model):
     try:
         result = {
             "think": "",
-            "response": "" 
+            "response": "",
         }
         if LOG_PROMPTS:
-            log(f"### Prompt:\n\n{prompt}\n\n-------------------\n\n")
+            if isinstance(prompt, str):
+                log(f"### Prompt:\n\n{prompt}\n\n-------------------\n\n")
+            else:
+                log(f"### Prompt: \n\n{prompt[-1].parts[0].text}\n\n-------------------\n\n")
 
         # gemini config
 
@@ -135,9 +153,10 @@ def answer(muni_nav, client, muni, url, query, depth=0, definitions=""):
 
     log(f"## Selecting title/chapters/articles/sections...\n\n")
 
-    prompt = f"""Query: "{query}".
-Here is the list of title/chapters/articles/sections:
-{name_list}."""
+    prompt = SORTER_QUERY_TEMPLATE.format(
+        query=query,
+        name_list=name_list
+    )
 
     response = gemini_query(client, prompt, inst.CONFIGS["sorter"], MODELS["fast"]) # prompt for relevant title/chapters/articles/section
 
@@ -158,9 +177,13 @@ Here is the list of title/chapters/articles/sections:
                 prompt, response, structured_response = answer(muni_nav, client, muni, muni_names[current_name], query, depth + 1, definitions_link)
             else:
                 log("## ANSWERING\n\n")
-                prompt = f"""Answer the following question on the city of {muni} from the link {muni_names[current_name]}{f", with the definitions of terms stored here:{definitions_link}" if definitions_link else ""} for the municipality of {muni}.
-
-Question: {query}"""
+                prompt = RESPONSE_QUERY_TEMPLATE.format(
+                    muni=muni,
+                    current_name=current_name,
+                    muni_code_url=muni_names[current_name],
+                    additional_links=(f"Definitions: {definitions_link}\n\n" if definitions_link else ""),
+                    query=query
+                )
                 response = gemini_query(client, prompt, inst.CONFIGS["thinking"], MODELS["thinking"]) # prompt for answer to query
                 if "(NONE)" in response["response"]:
                     response = None
@@ -200,18 +223,7 @@ def init(state, muni, query, client):
 
     return answer(municode_nav, client, muni, muni_cities[muni], query) # find relevant chapter/article and get answer
 
-def main():
-    client = genai.Client(api_key=GOOGLE_API_KEY)
-    state = "california"
-    muni = "milpitas"
-    query = "When it comes to affordable housing, are there Inclusionary Zoning rules?" 
-    
-    state = state or input("State: ").lower()
-    muni = muni or input("Municipality: ").lower()
-    query = query or input("Question: ")
-
-    response = init(state, muni, query, client)
-
+def start_chat(response, client):
     contents = [
         types.Content(
             role="user",
@@ -231,7 +243,6 @@ def main():
     # allow user to respond and converse with model
     while (True):
         prompt = input("Respond: ")
-        log(f"### User asks:\n\n{prompt}\n\n-------------------\n\n")
         if prompt == "/structure":
             print(json.loads(gemini_query(client, response["response"], inst.CONFIGS["structurer"], MODELS["fast"])))
         else:
@@ -253,6 +264,21 @@ def main():
                     ]
                 )
             )
+
+def main():
+    client = genai.Client(api_key=GOOGLE_API_KEY)
+    state = "california"
+    muni = "milpitas"
+    query = "When it comes to affordable housing, are there Inclusionary Zoning rules?" 
+    
+    # manual input
+    state = state or input("State: ").lower()
+    muni = muni or input("Municipality: ").lower()
+    query = query or input("Question: ")
+
+    response = init(state, muni, query, client)
+    start_chat(response, client)
+    
 
     
 
