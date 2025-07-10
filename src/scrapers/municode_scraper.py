@@ -32,7 +32,7 @@ DEPTH = {
 
 class MuniCodeCrawler:
     home_url = "https://library.municode.com"
-    def __init__(self):
+    def __init__(self, starting_url=home_url):
         """
         Create new MuniCodeCrawler Object
 
@@ -44,7 +44,7 @@ class MuniCodeCrawler:
         self.browser = webdriver.Chrome(options = chrome_options)
         self.wait = WebDriverWait(self.browser, TIMEOUT)
         self.browser.set_window_size(1024, 1024)
-        self.go(self.home_url)
+        self.go(starting_url)
 
     def get_url(self):
         """
@@ -193,9 +193,6 @@ class MuniCodeCrawler:
                 items = row.select(text_type)
                 for item in items:
                     text = ""
-                    print("---")
-                    print(str(item))
-                    print("---")
                     splits = item.text.split('\n')
                     for line in splits:
                         stripped = line.strip()
@@ -210,7 +207,6 @@ class MuniCodeCrawler:
         previous_line_incr = 0
         text = text_block.find_all(text_selector)
         previous_line_type = None
-
         for line in text:
             name = line.name
             if name == "h2" or name == "h3":
@@ -241,6 +237,7 @@ class MuniCodeCrawler:
                 insert_text = ""
                 for text_line in split:
                     insert_text += text_line.strip() + (' ' if len(text_line) else '')
+                # i know everything below looks really messy, but it should be clear enough to understand. sorry about that. (CL)
                 if line.has_attr("class") and "incr" in line.get("class")[0]:
                     current_line_incr = int(line.get("class")[0][-1:]) + 1
                     insert_text = ((' ' * 4 * (current_line_incr - 1)) if previous_line_type != "table" else "\n\n") + '>' * current_line_incr + insert_text
@@ -250,7 +247,8 @@ class MuniCodeCrawler:
                 else:
                     if previous_line_incr:
                         previous_line_incr = 0
-                    if line.has_attr("class") and "indent" in line.get("class")[0]:
+                    if line.has_attr("class") and (line.get("class")[0] == "p0" or "indent" in line.get("class")[0]):
+                        
                         insert_text = ('\n' if previous_line_type == "table" else '') + '>\n>' + insert_text
                         insert_text += '\n'
                     elif line.has_attr("class") and line.get("class")[0] == "b0":

@@ -1,9 +1,9 @@
 from google.genai import types
 
 THINKING_SYS_INST = ["You are a helpful municipality policy analyst.",
-"""Try to use the links the user provides as much as possible and to not stray from the chapter/article/section unless for verification/grounding purposes. Extract relevant information, then ground your answer based on the extraced data.""",
-"""Quotes must be exact content from inside the provided link with no modification.
-Whenever you provide a quote, double check that the quote is within the link specified. You must be able to specify one quote from within the provided city code link.
+"""Try to use the documents the user provides as much as possible and to not stray from the chapter/article/section unless for verification/grounding purposes. Extract relevant information, then ground your answer based on the extraced data.""",
+"""Quotes must be exact content from inside the provided document with no modification.
+Whenever you provide a quote, double check that the quote is within the document specified. You must be able to specify one quote from within the provided city code document.
 Try to keep the quotes short, only containing the most relevant and important points.""",
 """Please follow the formating tips below for the answer section:
 
@@ -22,7 +22,7 @@ Try to keep the quotes short, only containing the most relevant and important po
     - Example: Q: Which entity acts as the special permit granting authority for multi-family housing? A: "Zoning Board of Appeals"
 
 4. Conditional:
-    - If the answer based on the information from the link is ambiguous or if there is no single answer, provide all the answers you find and the cases where each answer would apply.
+    - If the answer based on the information from the document is ambiguous or if there is no single answer, provide all the answers you find and the cases where each answer would apply.
     - Provide the condition and the result of that condition.
     - Example: Q: how many eggs should I use to feed my family? A: "4 people: 6 eggs, 5 people: 7 eggs, 6+ people: 10 eggs"
 
@@ -41,23 +41,23 @@ Please provide one or more quotes from which you derived your answer in the form
 
 Examples: 
     Question: When/Where is it unlawful to solicit someone?
-    Response: (ANSWER): Within 30 feet of entrance/exit of bank/credit union, check cashig business, automated teller machine, Parking lots or parking structures after dark, Public transportation vehicle
+    Response: (ANSWER): Within 30 feet of entrance/exit of bank/credit union, check cashing business, automated teller machine, Parking lots or parking structures after dark, Public transportation vehicle
 
-    (QUOTE): ```4.12.1230 - Prohibited solicitation at specific locations.
+        (QUOTE): ```4.12.1230 - Prohibited solicitation at specific locations.
 
-    (a) It shall be unlawful for any person to solicit within thirty (30) feet of any entrance or exit of a bank, credit union, check cashing business or within thirty (30) feet of an automated teller machine.
+        (a) It shall be unlawful for any person to solicit within thirty (30) feet of any entrance or exit of a bank, credit union, check cashing business or within thirty (30) feet of an automated teller machine.
 
-    (b) It shall be unlawful for any person to solicit in any public transportation vehicle.
+        (b) It shall be unlawful for any person to solicit in any public transportation vehicle.
 
-    (c) Parking lots. It shall be unlawful for any person to solicit in any parking lot or parking structure any time after dark. "After dark" means any time for one-half hour after sunset to one-half hour before sunrise.``` [(Article 14. - Soliciting and Aggressive Solicitation)](https://library.municode.com/ca/tracy/codes/code_of_ordinances?nodeId=TIT4PUWEMOCO_CH4.12MIRE_ART14SOAGSO)
+        (c) Parking lots. It shall be unlawful for any person to solicit in any parking lot or parking structure any time after dark. "After dark" means any time for one-half hour after sunset to one-half hour before sunrise.``` [(Article 14. - Soliciting and Aggressive Solicitation)](https://library.municode.com/ca/tracy/codes/code_of_ordinances?nodeId=TIT4PUWEMOCO_CH4.12MIRE_ART14SOAGSO)
 
     Question: Can I direct traffic if I'm not police?
     Response: (ANSWER): (NO)
-    (QUOTE): ``` 3.08.050 - Direction of traffic.
+        (QUOTE): ``` 3.08.050 - Direction of traffic.
 
-No person, other than an officer of the Police Department or a person deputized or authorized by the Chief of Police or other person acting in any official capacity, or by authority of law shall direct or attempt to direct traffic by voice, hand or other signal.
+        No person, other than an officer of the Police Department or a person deputized or authorized by the Chief of Police or other person acting in any official capacity, or by authority of law shall direct or attempt to direct traffic by voice, hand or other signal.
 
-(Prior code § 3-2.203)``` [(Chapter 3.08 - TRAFFIC REGULATIONS)](https://library.municode.com/ca/tracy/codes/code_of_ordinances?nodeId=TIT3PUSA_CH3.08TRRE)
+        (Prior code § 3-2.203)``` [(Chapter 3.08 - TRAFFIC REGULATIONS)](https://library.municode.com/ca/tracy/codes/code_of_ordinances?nodeId=TIT3PUSA_CH3.08TRRE)
 """,
 "Keep your responses clear and concise.",
 "Make sure to check your work",
@@ -83,6 +83,7 @@ GROUNDER_SYS_INST = ["""You are a helpful municipality policy analyst.""",
 """Use grounding only to double check.""",
 """Only use search to check your work or ground your answer. Make sure you check your work. Use and make sure to cite specific sources when coming up with your reponse.""",
 """Your sources must come from official government websites or from a municipal code website like municode.""",
+"""If using the same source as the answer, you must not use the same quote. Try to find new sources instead or find a different relevant quote for your response.""",
 """Try to keep the quotes short, only containing the most relevant and important points.""",
 """When you arrive at a verdit, respond with a binary response.""",
 """Please follow the formating tips below for the answer section:
@@ -106,24 +107,50 @@ Please provide at least one quote from which you derived your answer in the form
 ..."
 
 Examples: 
-    Question: When/Where is it unlawful to solicit someone?
-    Response: (ANSWER): Within 30 feet of entrance/exit of bank/credit union, check cashig business, automated teller machine, Parking lots or parking structures after dark, Public transportation vehicle
+    Prompt: When/Where is it unlawful to solicit someone?
+        (ANSWER): Within 30 feet of entrance/exit of bank/credit union, check cashing business, automated teller machine, Parking lots or parking structures after dark, Public transportation vehicle
 
-    (QUOTE): ```4.12.1230 - Prohibited solicitation at specific locations.
+        (QUOTE): ```4.12.1230 - Prohibited solicitation at specific locations.
 
-    (a) It shall be unlawful for any person to solicit within thirty (30) feet of any entrance or exit of a bank, credit union, check cashing business or within thirty (30) feet of an automated teller machine.
+        (a) It shall be unlawful for any person to solicit within thirty (30) feet of any entrance or exit of a bank, credit union, check cashing business or within thirty (30) feet of an automated teller machine.
 
-    (b) It shall be unlawful for any person to solicit in any public transportation vehicle.
+        (b) It shall be unlawful for any person to solicit in any public transportation vehicle.
 
-    (c) Parking lots. It shall be unlawful for any person to solicit in any parking lot or parking structure any time after dark. "After dark" means any time for one-half hour after sunset to one-half hour before sunrise.``` [(Article 14. - Soliciting and Aggressive Solicitation)](https://library.municode.com/ca/tracy/codes/code_of_ordinances?nodeId=TIT4PUWEMOCO_CH4.12MIRE_ART14SOAGSO)
+        (c) Parking lots. It shall be unlawful for any person to solicit in any parking lot or parking structure any time after dark. "After dark" means any time for one-half hour after sunset to one-half hour before sunrise.``` [(Article 14. - Soliciting and Aggressive Solicitation)](https://library.municode.com/ca/tracy/codes/code_of_ordinances?nodeId=TIT4PUWEMOCO_CH4.12MIRE_ART14SOAGSO)
+
+        Is this answer accurate?
+
+    Response: (ANSWER): (YES)
+
+        (QUOTE): ```Section 4.12.1230 Prohibited solicitation at specific locations.
+        (a) It shall be unlawful for any person to solicit within 30 feet of any entrance or exit
+        of a bank, credit union, check cashing business or within 30 feet of an automated teller machine
+        without the consent of the owner of the property or other person legally in possession of such
+        business or machine.
+        (b) It shall be unlawful for any person to solicit an operator or other occupant of a
+        motor vehicle while such vehicle is located in a public place.
+        (c) It shall be unlawful for any person to solicit in any public transportation vehicle.
+        (d) Parking Lots. It shall be unlawful for any person to solicit in any parking lot or
+        parking structure any time after dark. “After dark” means any time for one-half hour after sunset
+        to one-half hour before sunrise.``` [(ORDINANCE)](https://mcclibraryfunctions.azurewebsites.us/api/ordinanceDownload/16660/413398/pdf?forceDownload=true)
 
     Question: Can I direct traffic if I'm not police?
+        (ANSWER): (NO)
+        (QUOTE): ``` 3 - Direction of traffic.
+
+        Individuals with an active traffic direction license is allowed to direct traffic.
+
+        (Prior code § 3-2.203)``` [(TRAFFIC REGULATIONS)](https://library.municode.com/ca/tracy/codes/code_of_ordinances)
+
+        Is this answer accurate?
+    
     Response: (ANSWER): (NO)
-    (QUOTE): ``` 3.08.050 - Direction of traffic.
+        (QUOTE): ``` 3.08.050 - Direction of traffic.
 
-No person, other than an officer of the Police Department or a person deputized or authorized by the Chief of Police or other person acting in any official capacity, or by authority of law shall direct or attempt to direct traffic by voice, hand or other signal.
+        No person, other than an officer of the Police Department or a person deputized or authorized by the Chief of Police or other person acting in any official capacity, or by authority of law shall direct or attempt to direct traffic by voice, hand or other signal.
 
-(Prior code § 3-2.203)``` [(Chapter 3.08 - TRAFFIC REGULATIONS)](https://library.municode.com/ca/tracy/codes/code_of_ordinances?nodeId=TIT3PUSA_CH3.08TRRE)
+        (Prior code § 3-2.203)``` [(Chapter 3.08 - TRAFFIC REGULATIONS)](https://library.municode.com/ca/tracy/codes/code_of_ordinances?nodeId=TIT3PUSA_CH3.08TRRE)
+    
 """,
 "Keep your responses clear and concise.",
 "Make sure to check your work",
@@ -206,8 +233,17 @@ SORTER_SCHEMA = {
 
 # general config
 CONFIGS = {
-    "thinking": types.GenerateContentConfig(
+    "thinker": types.GenerateContentConfig(
         system_instruction=THINKING_SYS_INST,
+        thinking_config=types.ThinkingConfig(
+            include_thoughts=True,
+            thinking_budget=-1
+        ),
+        temperature=0.05,
+        topP=0.15
+    ),
+    "grounder": types.GenerateContentConfig(
+        system_instruction=GROUNDER_SYS_INST,
         thinking_config=types.ThinkingConfig(
             include_thoughts=True,
             thinking_budget=-1

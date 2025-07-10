@@ -27,7 +27,7 @@ MUNICODE_MUNIS = "src/config/municode_munis.json"
 
 # model options
 MODELS = {
-    "thinking": "gemini-2.5-flash",
+    "thinker": "gemini-2.5-flash",
     "fast": "gemini-2.0-flash-lite"
 }
 
@@ -36,15 +36,20 @@ Here is the list of title/chapters/articles/sections:
 
 {name_list}"""
 
-RESPONSE_QUERY_TEMPLATE = """Answer the following question on the city/municipality of {muni} from the links provided below for the muni/city of {muni}:
+RESPONSE_QUERY_TEMPLATE = """Answer the following question on the city/municipality of {muni} from the documents provided below for the muni/city of {muni}:
 
-{muni} Code {current_name}: {muni_code_url}
+Below is the document in markdown format from the following link {muni_code_url}:
 
-{additional_links}
+{text}
 
 
 
 Question: {query}\n Response: """
+
+GROUNDER_QUERY_TEMPLATE = """Is this answer accurate?
+
+Response:
+"""
 
 def log(text):
     """
@@ -184,14 +189,47 @@ def answer(muni_nav, client, muni, url, query, depth=0, definitions=""):
                     muni=muni,
                     current_name=current_name,
                     muni_code_url=muni_names[current_name],
-                    additional_links=(f"Definitions: {definitions_link}\n\n" if definitions_link else ""),
+                    text=muni_nav.scrape_text(),
+                    #additional_links=(f"Definitions: {definitions_link}\n\n" if definitions_link else ""),
                     query=query
                 )
-                response = gemini_query(client, prompt, inst.CONFIGS["thinking"], MODELS["thinking"]) # prompt for answer to query
+                response = gemini_query(client, prompt, inst.CONFIGS["thinker"], MODELS["thinker"]) # prompt for answer to query
                 if "(NONE)" in response["response"]:
                     response = None
                 else:
-                    structured_response = gemini_query(client, response["response"], inst.CONFIGS["structurer"], MODELS["fast"])
+                    log("## VERIFYING\n\n")
+                    contents = [
+                        types.Content(
+                            role="user",
+                            parts=[
+                                types.Part.from_text(text=prompt)
+                            ]
+                        ),
+                        types.Content(
+                            role="model",
+                            parts=[
+                                types.Part.from_text(text=response["think"]),
+                                types.Part.from_text(text=response["response"])
+                            ]
+                        ),
+                        types.Content(
+                            role="user",
+                            parts=[
+                                types.Part.from_text(
+                                    text=GROUNDER_QUERY_TEMPLATE.format(
+                                        muni=muni,
+                                        query=query,
+                                        answer=response["response"]
+                                    )
+                                )
+                            ]
+                        )
+                    ]
+                    grounding_response = gemini_query(client, contents, inst.CONFIGS["grounder"], MODELS["thinker"])
+                    if "(YES)" in grounding_response["response"]:
+                        structured_response = gemini_query(client, response["response"], inst.CONFIGS["structurer"], MODELS["fast"])
+                    else:
+                        response = None # invalidate response if grounder fails to verify
             if response: # If no answer, continue, else, continue and look at next title/chapter/article/section
                 return prompt, response, structured_response
     return None, None, None
@@ -242,7 +280,7 @@ def start_chat(response, client):
                     ]
                 )
             )
-            response = gemini_query(client, contents, inst.CONFIGS["thinking"], MODELS["thinking"])
+            response = gemini_query(client, contents, inst.CONFIGS["thinker"], MODELS["thinker"])
             contents.append(
                 types.Content(
                     role="model",
@@ -257,7 +295,7 @@ def main():
     client = genai.Client(api_key=GOOGLE_API_KEY)
     state = "california"
     muni = "milpitas"
-    query = "When it comes to affordable housing, are there Inclusionary Zoning rules?" 
+    query = "Is there Land Value Recapture policies?" 
     
     # manual input
     state = state or input("State: ").lower()
