@@ -22,6 +22,8 @@ GOOGLE_API_KEY = os.getenv('GOOGLE') # google cloud api key
 LOGGING = True # whether or not log.md is generated
 LOG_PROMPTS = True # logs prompts generated
 
+MUNICODE_MUNIS = "src/config/municode_munis.json"
+
 
 # model options
 MODELS = {
@@ -85,20 +87,21 @@ def gemini_query(client, prompt, config, model):
             contents=prompt,
             config=config
         ):
-            if chunk.candidates and chunk.candidates[0].content.parts:
-                for part in chunk.candidates[0].content.parts:
-                    if not part or not part.text:
-                        continue
-                    if part.thought:
-                        if not result["think"]:
-                            log(f"### Thinking:\n\n")
-                        result["think"] += part.text
-                        log(part.text)
-                    else:
-                        if not result["response"]:
-                            log(f"### Response:\n\n")
-                        result["response"] += part.text
-                        log(part.text)
+            if chunk.candidates:
+                if chunk.candidates[0].content.parts:
+                    for part in chunk.candidates[0].content.parts:
+                        if not part or not part.text:
+                            continue
+                        if part.thought:
+                            if not result["think"]:
+                                log(f"### Thinking:\n\n")
+                            result["think"] += part.text
+                            log(part.text)
+                        else:
+                            if not result["response"]:
+                                log(f"### Response:\n\n")
+                            result["response"] += part.text
+                            log(part.text)
         log("\n\n-------------------\n\n")
         return result
     except ServerError as e:
@@ -198,30 +201,15 @@ def init(state, muni, query, client):
     if LOGGING:
         with open("log.md", "w", encoding="utf-8") as f: # for testing purposes
             f.write(f"# LOG\n\n")
+    
+    with open(MUNICODE_MUNIS, 'r') as file:
+        munis = json.load(file)
 
-    muni_states = None
-    while not muni_states:
-        muni_states = municode_nav.scrape_states() # grab states
-        if not muni_states:
-            log(f"#### FAILED TO GET STATES, RETRYING.\n\n")
-            municode_nav.go()
-    
-    log(f"#### State: {state}\n\n")
-    
-    muni_cities = None
-    while not muni_cities:
-        municode_nav.go(muni_states[state]) # go to selected state
-        muni_cities = municode_nav.scrape_cities() # grab cities
-        if not muni_cities:
-            log(f"#### FAILED TO GET CITIES, RETRYING.\n\n")
-    #for city in muni_cities:
-        #print(city)
-    
     log(f"#### Municipality: {muni}\n\n")
 
     log(f"#### Question: {query}\n\n-------------------\n\n")
 
-    return answer(municode_nav, client, muni, muni_cities[muni], query) # find relevant chapter/article and get answer
+    return answer(municode_nav, client, muni, munis[state]["municipalities"][muni], query) # find relevant chapter/article and get answer
 
 def start_chat(response, client):
     contents = [
