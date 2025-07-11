@@ -188,13 +188,6 @@ class MuniCodeCrawler:
                     result += separator + stripped
             return result[len(separator):]
 
-        def contains_child(parent, tag):
-            for child in parent.children:
-                if isinstance(child, Tag):
-                    if child.name == tag:
-                        return True
-            return False
-
         result = ""
         text_block = self.soup.select_one("ul.chunks.list-unstyled.small-padding") # contains the text
         previous_line_incr = 0
