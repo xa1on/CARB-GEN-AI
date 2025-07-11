@@ -26,8 +26,8 @@ TEXT_CSS = "ul.chunks.list-unstyled.small-padding"
 
 DEPTH = {
     "Titles": 0,
-    "Chapters": 2,
-    "Articles": 3
+    "Chapters": 1,
+    "Articles": 2
 }
 
 class MuniCodeCrawler:
@@ -129,9 +129,11 @@ class MuniCodeCrawler:
 
         :param self:
         :param title: whether or not we are looking for the titles
-        :param depth: depth of item. (title: 0, chapter: 2, article/section: 3)
+        :param depth: depth of item. (title: 0, chapter: 1, article/section: 2)
         :return: dictionary in the format {[code_name]: [link to code]}
         """
+        if depth: # because municode is stupid, it works like this: (title: 0, chapter: 2, article/section: 3), therefore, we need to index up
+            depth += 1
         self.wait_codes()
         result = {}
         codes = self.soup.find_all("li", {"depth": depth})
@@ -159,10 +161,12 @@ class MuniCodeCrawler:
 
     def scrape_articles(self):
         return self.scrape_codes(DEPTH["Articles"])
-    
+
     def scrape_text(self):
         """
         Scrapes text from code on page
+
+        Notes: Incredibly messy. need to redo (CL)
 
         :param self:
         :return: string of the output in markdown format
@@ -197,7 +201,8 @@ class MuniCodeCrawler:
                     for line in splits:
                         stripped = line.strip()
                         if stripped:
-                            text += stripped + ", "
+                            text += ", " + stripped
+                    text = text[2:]
                     result += f"|{text}{("|" * (int(item.get("colspan")[0]) - 1)) if item.has_attr("colspan") else ""}"
                 result += "|\n"
             return result
@@ -236,28 +241,34 @@ class MuniCodeCrawler:
                 split = line.text.split('\n')
                 insert_text = ""
                 for text_line in split:
-                    insert_text += text_line.strip() + (' ' if len(text_line) else '')
-                # i know everything below looks really messy, but it should be clear enough to understand. sorry about that. (CL)
+                    if text_line:
+                        insert_text += ' ' + text_line.strip()
+                insert_text = insert_text[1:]
+                # i know everything below looks really messy, might need a rerewrite
                 if line.has_attr("class") and "incr" in line.get("class")[0]:
                     current_line_incr = int(line.get("class")[0][-1:]) + 1
                     insert_text = ((' ' * 4 * (current_line_incr - 1)) if previous_line_type != "table" else "\n\n") + '>' * current_line_incr + insert_text
-                    if current_line_incr == 1:
+                    if current_line_incr == 1 or previous_line_incr == 0:
                         insert_text = ">\n" + insert_text
+                    elif previous_line_incr > current_line_incr:
+                        insert_text = '>' * current_line_incr + '\n' + insert_text
                     previous_line_incr = current_line_incr + 1
+                elif "content" in line.get("class")[0]:
+                    insert_text = ("\n" if previous_line_type == "table" else '') + insert_text + "<br>" + '\n'
                 else:
+                    if line.has_attr("class"):
+                        if (line.get("class")[0] == "p0" or "indent" in line.get("class")[0]):
+                            insert_text = ("\n\n" if previous_line_type == "table" else '\n') + '* ' + insert_text + '\n'
+                        elif line.get("class")[0] == "b0":
+                            insert_text = ("\n\n" if previous_line_type == "table" else '\n') + '* * ' + insert_text + '\n\n'
+                        elif line.get("class")[0] == "bc0":
+                            insert_text = ('\n' if previous_line_type == "table" else '') + "\n**" + insert_text + "**\n"
+                        else:
+                            insert_text = ("\n\n" if previous_line_type == "table" else '\n') + insert_text + '\n'
+                    else:
+                        insert_text = ("\n\n" if previous_line_type == "table" else '\n') + insert_text + '\n'
                     if previous_line_incr:
                         previous_line_incr = 0
-                    if line.has_attr("class") and (line.get("class")[0] == "p0" or "indent" in line.get("class")[0]):
-                        
-                        insert_text = ('\n' if previous_line_type == "table" else '') + '>\n>' + insert_text
-                        insert_text += '\n'
-                    elif line.has_attr("class") and line.get("class")[0] == "b0":
-                        insert_text = ('\n' if previous_line_type == "table" else '') + '>>' + insert_text
-                        insert_text += '\n'
-                    else:
-                        if previous_line_type == "table":
-                            insert_text = '\n' + insert_text
-                        insert_text += '\n'
                 result += insert_text
             previous_line_type = name
         with open("test.md", "w", encoding="utf-8") as f: # for testing purposes
@@ -284,8 +295,7 @@ def export_munis():
         json.dump(result, f)
 
 def test_text_scrape():
-    muni_scraper = MuniCodeCrawler()
-    muni_scraper.go("https://library.municode.com/ca/milpitas/codes/code_of_ordinances?nodeId=TITXIZOPLAN_CH10ZO_S4REZOST")
+    muni_scraper = MuniCodeCrawler("https://library.municode.com/ca/milpitas/codes/code_of_ordinances?nodeId=TITXIZOPLAN_CH10ZO_S11SPPLAR_XI-10-11.01PUIN")
     muni_scraper.scrape_text()
 
 def main():

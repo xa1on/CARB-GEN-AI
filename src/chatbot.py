@@ -51,6 +51,8 @@ GROUNDER_QUERY_TEMPLATE = """Is this answer accurate?
 Response:
 """
 
+RELEVANCE_THRESHOLD = 4 # completely arbitrary
+
 def log(text):
     """
     Log text into log.txt file for debugging/testing purposes
@@ -170,8 +172,15 @@ def answer(muni_nav, client, muni, url, query, depth=0, definitions=""):
 
     response_json = json.loads(response["response"])
     response_json.sort(key=lambda x: x['relevance_rating'], reverse=True) # sorts the list based on relevance_rating
+    for index, response in enumerate(response_json):
+        if response["relevance_rating"] < RELEVANCE_THRESHOLD:
+            response_json = response_json[:index]
+            if response_json:
+                log("### Filtered Response:\n\n")
+                log(str(response_json) + "\n\n")
+            break
 
-    if not len(response_json) or response_json[0]["relevance_rating"] < 4: # return None if none of the reponses are relevant enough
+    if not response_json: # return None if none of the reponses are relevant enough
         return None, None, None
 
     for attempt in response_json:
@@ -180,8 +189,6 @@ def answer(muni_nav, client, muni, url, query, depth=0, definitions=""):
             log(f"### Navigating to [{current_name}]({muni_names[current_name]})\n\n")
             response = {}
             if not depth or muni_nav.contains_child(): # if theres child entries, we'll use those instead to get our answer
-                if not depth:
-                    depth += 1
                 prompt, response, structured_response = answer(muni_nav, client, muni, muni_names[current_name], query, depth + 1, definitions_link)
             else:
                 log("## ANSWERING\n\n")
@@ -303,7 +310,10 @@ def main():
     query = query or input("Question: ")
 
     response = init(state, muni, query, client)
-    start_chat(response, client)
+    if response[1]:
+        start_chat(response, client)
+    else:
+        log("# No results found. Answer is likely No")
     
 
     
