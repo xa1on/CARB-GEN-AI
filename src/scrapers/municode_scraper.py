@@ -11,7 +11,7 @@ Org: University of Toronto - School of Cities
 
 import time
 import json
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -163,6 +163,125 @@ class MuniCodeCrawler:
         return self.scrape_codes(DEPTH["Articles"])
 
     def scrape_text(self):
+        """
+        Scrapes text from code on page
+
+        :param self:
+        :return: string of the output in markdown format
+        """
+        self.wait_text()
+        def text_selector(tag):
+            # only select text with h2, h3, p, table tags
+            return tag.name == "h2" or tag.name == "h3" or tag.name == "p" or tag.name == "table"
+
+        def table_item_selector(tag):
+            # select tags of table items
+            return tag.name == "td" or tag.name == "th"
+
+        def stripped_splitter(text, separator=' '):
+            # split by newline and strip leading and tailing spaces
+            result = ""
+            split = text.split('\n')
+            for text_line in split:
+                stripped = text_line.strip()
+                if stripped:
+                    result += separator + stripped
+            return result[len(separator):]
+
+        def contains_child(parent, tag):
+            for child in parent.children:
+                if isinstance(child, Tag):
+                    if child.name == tag:
+                        return True
+            return False
+
+        result = ""
+        text_block = self.soup.select_one("ul.chunks.list-unstyled.small-padding") # contains the text
+        previous_line_incr = 0
+        # using text_selector to retain order
+        text = text_block.find_all(text_selector)
+        for line in text:
+            tag = line.name
+            if tag == "h2" or tag == "h3":
+                result += "#" * int(tag[1:]) + ' ' + line.select_one("div[class=chunk-title]").text + "\n\n"
+            elif tag == "table":
+                head = line.select_one("thead")
+                body = line.select_one("tbody")
+                head_rows = []
+                head_row_exists = False
+                if head:
+                    head_rows = head.select("tr")
+                    head_row_exists = True
+                body_rows = body.select("tr")
+                rows = head_rows + body_rows
+                width = len(body_rows[0].find_all(table_item_selector))
+                height = len(rows)
+                filled = [['' for _ in range(width)] for _ in range(height)] # matrix representing filled spots
+                current_row = 0 # index
+                current_col = 0
+                for row in rows: # iterate through and fill up matrix
+                    items = row.find_all(table_item_selector)
+                    current_col = 0
+                    for item in items:
+                        for col_index in range(current_col, len(filled[current_row])): # go to first open col in row
+                            if filled[current_row][col_index]:
+                                current_col += 1
+                            else:
+                                break
+                        item_w = 1
+                        item_h = 1
+                        if item.has_attr("colspan"):
+                            item_w = int(item.get("colspan")[0])
+                        if item.has_attr("rowspan"):
+                            item_h = int(item.get("rowspan")[0])
+                        if current_col + item_w > width: # resizing matrix to ensure enough space
+                            for row in filled:
+                                for _ in range(current_col + item_w - width):
+                                    row.append('')
+                            width = current_col + item_w
+                        if current_row + item_h > height:
+                            for _ in range(current_row + item_h - height):
+                                filled.append([False for _ in width])
+                        for x in range(current_col, current_col + item_w):
+                            for y in range(current_row, current_row + item_h):
+                                filled[y][x] = '|' + (stripped_splitter(item.text, "<br>") if x == current_col and y == current_row else '')
+                        current_col += item_w
+                    current_row += 1
+                seperator = "|-" * width + "|\n"
+                if not head_row_exists:
+                    result += '|' * width + "|\n" + seperator
+                for row in filled:
+                    for item in row:
+                        result += item
+                    result += "|\n"
+                    if head_row_exists:
+                        result += seperator
+                        head_row_exists = False
+                result += '\n'
+
+                    
+            elif tag == "p":
+                line_class = line.get("class")[0] if line.has_attr("class") else ''
+                if line_class == "p0" or "content" in line_class or "historynote" in line_class:
+                    # regular text
+                    result += stripped_splitter(line.text) + "\n\n"
+                elif line_class == "b0":
+                    # indented text
+                    result += "\t\t" + stripped_splitter(line.text) + "\n\n"
+                elif "incr" in line_class:
+                    # start of indented text
+                    indent = int(line_class[-1]) + 1
+                    result += '\t' * indent + ' ' + line.text.strip() + ' '
+                elif "bc" in line_class:
+                    # bold centered text
+                    for content in line.contents:
+                        text = content.text
+                        if text.strip():
+                            result += "**" + stripped_splitter(text) + "**" + "\n"
+                    result += '\n'
+        with open("test.md", "w", encoding="utf-8") as f: # for testing purposes
+            f.write(result)
+        return result
         """
         Scrapes text from code on page
 
