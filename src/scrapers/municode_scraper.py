@@ -172,11 +172,14 @@ class MuniCodeCrawler:
         self.wait_text()
         def text_selector(tag):
             # only select text with h2, h3, p, table tags
-            return tag.name == "h2" or tag.name == "h3" or tag.name == "p" or tag.name == "table"
+            return tag.name == "h2" or tag.name == "h3" or tag.name == "p" or tag.name == "table" or (tag.name == "div" and tag.has_attr("class") and tag.get("class")[0] == "footnote-content")
 
         def table_item_selector(tag):
             # select tags of table items
             return tag.name == "td" or tag.name == "th"
+
+        def bold_text_selector(tag):
+            return tag.name == "b" or (tag.name == "span" and tag.has_attr("class") and tag.get("class")[0] == "bold")
 
         def stripped_splitter(text, separator=' '):
             # split by newline and strip leading and tailing spaces
@@ -190,12 +193,24 @@ class MuniCodeCrawler:
 
         result = ""
         text_block = self.soup.select_one("ul.chunks.list-unstyled.small-padding") # contains the text
+        bolds = text_block.find_all(bold_text_selector)
+        for bold in bolds:
+            bold.replace_with(f"**{stripped_splitter(bold.text)}**")
+        sups = text_block.find_all("sup")
+        for sup in sups:
+            sup.replace_with(f"<sup>{stripped_splitter(sup.text)}</sup>")
+        subs = text_block.find_all("sub")
+        for sub in subs:
+            sub.replace_with(f"<sub>{stripped_splitter(sub.text)}</sub>")
         previous_line_incr = 0
         # using text_selector to retain order
         text = text_block.find_all(text_selector)
         for line in text:
             tag = line.name
-            if tag == "h2" or tag == "h3":
+            if tag == "div":
+                for chunk in line.contents:
+                    result += "> " + stripped_splitter(chunk.text) + "\n>\n"
+            elif tag == "h2" or tag == "h3":
                 result += "#" * int(tag[1:]) + ' ' + line.select_one("div[class=chunk-title]").text + "\n\n"
             elif tag == "table":
                 head = line.select_one("thead")
@@ -237,12 +252,12 @@ class MuniCodeCrawler:
                                 filled.append([False for _ in width])
                         for x in range(current_col, current_col + item_w):
                             for y in range(current_row, current_row + item_h):
-                                filled[y][x] = '|' + (stripped_splitter(item.text, "<br>") if x == current_col and y == current_row else '')
+                                filled[y][x] = '|' + (stripped_splitter(item.text, "<br>") if x == current_col and y == current_row else '') # filling all spots where item sits
                         current_col += item_w
                     current_row += 1
                 seperator = "|-" * width + "|\n"
                 if not head_row_exists:
-                    result += '|' * width + "|\n" + seperator
+                    result += '|' * width + "|\n" + seperator # inserting seperator if header doesn't exist
                 for row in filled:
                     for item in row:
                         result += item
@@ -251,138 +266,20 @@ class MuniCodeCrawler:
                         result += seperator
                         head_row_exists = False
                 result += '\n'
-
-                    
             elif tag == "p":
                 line_class = line.get("class")[0] if line.has_attr("class") else ''
-                if line_class == "p0" or "content" in line_class or "historynote" in line_class:
-                    # regular text
-                    result += stripped_splitter(line.text) + "\n\n"
-                elif line_class == "b0":
+                if line_class == "b0":
                     # indented text
                     result += "\t\t" + stripped_splitter(line.text) + "\n\n"
                 elif "incr" in line_class:
                     # start of indented text
                     indent = int(line_class[-1]) + 1
                     result += '\t' * indent + ' ' + line.text.strip() + ' '
-                elif "bc" in line_class:
-                    # bold centered text
-                    for content in line.contents:
-                        text = content.text
-                        if text.strip():
-                            result += "**" + stripped_splitter(text) + "**" + "\n"
-                    result += '\n'
-        with open("test.md", "w", encoding="utf-8") as f: # for testing purposes
-            f.write(result)
-        return result
-        """
-        Scrapes text from code on page
-
-        Notes: Incredibly messy. need to redo (CL)
-
-        :param self:
-        :return: string of the output in markdown format
-        """
-        self.wait_text()
-        def text_selector(tag):
-            # only select text with h2, h3, p, table tags
-            return tag.name == "h2" or tag.name == "h3" or tag.name == "p" or tag.name == "table"
-        
-        def get_row_num(table):
-            # get the total number of rows in a table
-            body = table.select_one("tbody")
-            row = body.select_one("tr")
-            items = row.select("td")
-            total = 0
-            for item in items:
-                if item.has_attr("colspan"):
-                    total += int(item.get("colspan"))
-                else:
-                    total += 1
-            return total
-
-        def rows_text(parent, text_type):
-            # converts table rows into markdown text
-            rows = parent.select("tr")
-            result = ""
-            for row in rows:
-                items = row.select(text_type)
-                for item in items:
-                    text = ""
-                    splits = item.text.split('\n')
-                    for line in splits:
-                        stripped = line.strip()
-                        if stripped:
-                            text += ", " + stripped
-                    text = text[2:]
-                    result += f"|{text}{("|" * (int(item.get("colspan")[0]) - 1)) if item.has_attr("colspan") else ""}"
-                result += "|\n"
-            return result
-        
-        result = ""
-        text_block = self.soup.select_one("ul.chunks.list-unstyled.small-padding") # contains the text
-        previous_line_incr = 0
-        text = text_block.find_all(text_selector)
-        previous_line_type = None
-        for line in text:
-            name = line.name
-            if name == "h2" or name == "h3":
-                result += "#" * int(name[1]) + ' ' + line.select_one("div[class=chunk-title]").text + '\n'
-            elif name == "table":
-                num_rows = get_row_num(line)
-                heads = line.select("thead")
-                result += '\n'
-                if not len(heads):
-                    result += '|' * (num_rows + 1) + '\n'
-                else:
-                    for head in heads:
-                        result += rows_text(head, "th")
-                result += '|' + "-|" * num_rows + '\n'
-                bodies = line.select("tbody")
-                if not len(bodies):
-                    result += '|' * (num_rows + 1) + '\n'
-                else:
-                    for body in bodies:
-                        result += rows_text(body, "td")
-            elif name == "p":
-                stripped = line.text.strip()
-                if not stripped:
-                    name = previous_line_type
-                    continue
-                # splitting to remove all trailing white-space
-                split = line.text.split('\n')
-                insert_text = ""
-                for text_line in split:
-                    if text_line:
-                        insert_text += ' ' + text_line.strip()
-                insert_text = insert_text[1:]
-                # i know everything below looks really messy, might need a rerewrite
-                if line.has_attr("class") and "incr" in line.get("class")[0]:
-                    current_line_incr = int(line.get("class")[0][-1:]) + 1
-                    insert_text = ((' ' * 4 * (current_line_incr - 1)) if previous_line_type != "table" else "\n\n") + '>' * current_line_incr + insert_text
-                    if current_line_incr == 1 or previous_line_incr == 0:
-                        insert_text = ">\n" + insert_text
-                    elif previous_line_incr > current_line_incr:
-                        insert_text = '>' * current_line_incr + '\n' + insert_text
-                    previous_line_incr = current_line_incr + 1
-                elif "content" in line.get("class")[0]:
-                    insert_text = ("\n" if previous_line_type == "table" else '') + insert_text + "<br>" + '\n'
-                else:
-                    if line.has_attr("class"):
-                        if (line.get("class")[0] == "p0" or "indent" in line.get("class")[0]):
-                            insert_text = ("\n\n" if previous_line_type == "table" else '\n') + '* ' + insert_text + '\n'
-                        elif line.get("class")[0] == "b0":
-                            insert_text = ("\n\n" if previous_line_type == "table" else '\n') + '* * ' + insert_text + '\n\n'
-                        elif line.get("class")[0] == "bc0":
-                            insert_text = ('\n' if previous_line_type == "table" else '') + "\n**" + insert_text + "**\n"
-                        else:
-                            insert_text = ("\n\n" if previous_line_type == "table" else '\n') + insert_text + '\n'
-                    else:
-                        insert_text = ("\n\n" if previous_line_type == "table" else '\n') + insert_text + '\n'
-                    if previous_line_incr:
-                        previous_line_incr = 0
-                result += insert_text
-            previous_line_type = name
+                elif not "refmanual" in line_class:
+                    #if not "content" in line_class and not "p0" in line_class and not "historynote" in line_class: 
+                        #print(line_class)
+                        #print(line.text)
+                    result += stripped_splitter(line.text) + "\n\n"
         with open("test.md", "w", encoding="utf-8") as f: # for testing purposes
             f.write(result)
         return result
@@ -407,7 +304,7 @@ def export_munis():
         json.dump(result, f)
 
 def test_text_scrape():
-    muni_scraper = MuniCodeCrawler("https://library.municode.com/ca/milpitas/codes/code_of_ordinances?nodeId=TITXIZOPLAN_CH10ZO_S11SPPLAR_XI-10-11.01PUIN")
+    muni_scraper = MuniCodeCrawler("https://library.municode.com/ca/milpitas/codes/code_of_ordinances?nodeId=TITXIZOPLAN_CH10ZO_S4REZOST")#"https://library.municode.com/ca/milpitas/codes/code_of_ordinances?nodeId=TITXIZOPLAN_CH10ZO_S11SPPLAR_XI-10-11.01PUIN")
     muni_scraper.scrape_text()
 
 def main():
