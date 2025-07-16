@@ -132,36 +132,11 @@ def key_list(dict, seperator=", "):
     result = result[:-(len(seperator))]
     return result
 
-def answer(muni_nav, client, muni, url, query, depth=0, definitions=""):
-    """
-    Accesses the title/chapter/article/section names recursively until answer is found to query
-
-    :param muni_nav: municode scraper object
-    :param client: gemini client
-    :param muni: current municipality
-    :param url: url to page to scrape from
-    :param query: input question
-    :param depth: depth of item. (0-title, 2-chapter, 3-article/section)
-    :param definitions: link to the most relevant definitions section (usually empty)
-    :return: prompt, answer to query, structured response
-    """
-
-    muni_names = None
-    while not muni_names:
-        muni_nav.go(url)
-        muni_names = muni_nav.scrape_codes(depth) # get title/chapters/articles/section
-        if not muni_names:
-            log(f"#### FAILED. RETRYING...\n\n")
-    definitions_link = definitions
-    for name in muni_names: # find definitions, if exists.
-        if "definition" in name.lower():
-            definitions_link = muni_names[name]
-            muni_names.pop(name)
-            break
-
-    name_list = key_list(muni_names)
-
+def answer(muni_nav: municode.MuniCodeCrawler, client, muni, query, depth=0):
+    code_names = muni_nav.scrape_codes(depth)
     log(f"## Selecting title/chapters/articles/sections...\n\n")
+
+    name_list = key_list(code_names)
 
     prompt = SORTER_QUERY_TEMPLATE.format(
         query=query,
@@ -183,56 +158,57 @@ def answer(muni_nav, client, muni, url, query, depth=0, definitions=""):
     if not response_json: # return None if none of the reponses are relevant enough
         return None, None, None
 
-    for attempt in response_json:
-        current_name = attempt["name"]
-        if current_name in muni_names:
-            log(f"### Navigating to [{current_name}]({muni_names[current_name]})\n\n")
-            response = {}
-            if not depth or muni_nav.contains_child(): # if theres child entries, we'll use those instead to get our answer
-                prompt, response, structured_response = answer(muni_nav, client, muni, muni_names[current_name], query, depth + 1, definitions_link)
+    if not depth or muni_nav.contains_child():
+        log(f"### Going deeper ...\n\n")
+        for page in response_json:
+            log(f"### Navigating to [{page["name"]}]({code_names[page["name"]]})\n\n")
+            muni_nav.go(code_names[page["name"]])
+            response = answer(muni_nav, client, muni, query, depth + 1)
+            if response[0]:
+                return response
             else:
-                log("## ANSWERING\n\n")
-                prompt = RESPONSE_QUERY_TEMPLATE.format(
-                    muni=muni,
-                    current_name=current_name,
-                    muni_code_url=muni_names[current_name],
-                    text=muni_nav.scrape_text(),
-                    #additional_links=(f"Definitions: {definitions_link}\n\n" if definitions_link else ""),
-                    query=query
-                )
-                response = gemini_query(client, prompt, inst.CONFIGS["thinker"], MODELS["thinker"]) # prompt for answer to query
-                if "(NONE)" in response["response"]:
-                    response = None
-                else:
-                    log("## VERIFYING\n\n")
-                    contents = [
-                        types.Content(
-                            role="model",
-                            parts=[
-                                types.Part.from_text(text=response["think"]),
-                                types.Part.from_text(text=response["response"])
-                            ]
-                        ),
-                        types.Content(
-                            role="user",
-                            parts=[
-                                types.Part.from_text(
-                                    text=GROUNDER_QUERY_TEMPLATE.format(
-                                        muni=muni,
-                                        query=query,
-                                        answer=response["response"]
-                                    )
-                                )
-                            ]
+                log(f"### Backtracking ...\n\n")
+    else:
+        log("## ANSWERING\n\n")
+        prompt = RESPONSE_QUERY_TEMPLATE.format(
+            muni=muni,
+            muni_code_url=muni_nav.url,
+            text=muni_nav.scrape_text(),
+            #additional_links=(f"Definitions: {definitions_link}\n\n" if definitions_link else ""),
+            query=query
+        )
+        response = gemini_query(client, prompt, inst.CONFIGS["thinker"], MODELS["thinker"]) # prompt for answer to query
+        if "(NONE)" in response["response"]:
+            return None, None, None
+        else:
+            log("## VERIFYING\n\n")
+            contents = [
+                types.Content(
+                    role="model",
+                    parts=[
+                        types.Part.from_text(text=response["think"]),
+                        types.Part.from_text(text=response["response"])
+                    ]
+                ),
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_text(
+                            text=GROUNDER_QUERY_TEMPLATE.format(
+                                muni=muni,
+                                query=query,
+                                answer=response["response"]
+                            )
                         )
                     ]
-                    grounding_response = gemini_query(client, contents, inst.CONFIGS["grounder"], MODELS["thinker"])
-                    if "(YES)" in grounding_response["response"]:
-                        structured_response = gemini_query(client, response["response"], inst.CONFIGS["structurer"], MODELS["fast"])
-                    else:
-                        response = None # invalidate response if grounder fails to verify
-            if response: # If no answer, continue, else, continue and look at next title/chapter/article/section
-                return prompt, response, structured_response
+                )
+            ]
+            grounding_response = gemini_query(client, contents, inst.CONFIGS["grounder"], MODELS["thinker"])
+            if "(YES)" in grounding_response["response"]:
+                structured_response = gemini_query(client, response["response"], inst.CONFIGS["structurer"], MODELS["fast"])
+            else:
+                return None, None, None
+            return prompt, response, structured_response
     return None, None, None
 
 def init(state, muni, query, client):
@@ -248,7 +224,9 @@ def init(state, muni, query, client):
 
     log(f"#### Question: {query}\n\n-------------------\n\n")
 
-    return answer(municode_nav, client, muni, munis[state]["municipalities"][muni], query) # find relevant chapter/article and get answer
+    municode_nav.go(munis[state]["municipalities"][muni])
+
+    return answer(municode_nav, client, muni, query) # find relevant chapter/article and get answer
 
 def start_chat(response, client):
     contents = [
@@ -296,7 +274,7 @@ def main():
     client = genai.Client(api_key=GOOGLE_API_KEY)
     state = "california"
     muni = "milpitas"
-    query = "Where can I build live work units?" 
+    query = "How many chickens can I keep in my backyard? They are kept in an enclosed pen." 
     
     # manual input
     state = state or input("State: ").lower()

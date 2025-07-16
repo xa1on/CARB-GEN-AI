@@ -19,7 +19,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 SNAPSHOTS_DIR = "snapshots"
 LOADING_CSS_SELECTOR = ".fa-2x"
-TIMEOUT = 7.5
+TIMEOUT = 60
 INDEX_CSS = "a[class=index-link]"
 CODE_CSS = "a[class=toc-item-heading]"
 TEXT_CSS = "ul.chunks.list-unstyled.small-padding"
@@ -53,7 +53,7 @@ class MuniCodeCrawler:
         :param self:
         :return: current url value
         """
-        return self.url
+        return self._url
     
     def set_url(self, url):
         """
@@ -63,7 +63,7 @@ class MuniCodeCrawler:
         :param url: url to set object to
         :return:
         """
-        self.url = url
+        self._url = url
     
     def take_snapshot(self):
         """
@@ -83,8 +83,8 @@ class MuniCodeCrawler:
         :return:
         """
         if url: # if url is specified, go to url specified
-            self.set_url(url)
-        self.browser.get(self.url)
+            self.url = url
+        self.browser.get(self._url)
         self.wait.until(EC.invisibility_of_element_located((By.CSS_SELECTOR, LOADING_CSS_SELECTOR)))
         self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
     
@@ -139,7 +139,7 @@ class MuniCodeCrawler:
         codes = self.soup.find_all("li", {"depth": depth})
         for code in codes:
             code = code.select_one("a[class=toc-item-heading]")
-            code_text = code.find("span", {"data-ng-bind": "::node.Heading"}).text.replace('\n', '')
+            code_text = code.find("span", {"data-ng-bind": "::node.Heading"}).text.replace('\n', '').replace('*', '')
             result[code_text] = code["href"]
         return result
     
@@ -283,6 +283,7 @@ class MuniCodeCrawler:
         with open("test.md", "w", encoding="utf-8") as f: # for testing purposes
             f.write(result)
         return result
+    url = property(get_url, set_url)
 
 def export_munis():
     """
