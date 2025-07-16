@@ -304,7 +304,7 @@ def export_munis():
         json.dump(result, f)
 
 def test_text_scrape():
-    muni_scraper = MuniCodeCrawler("https://library.municode.com/ca/milpitas/codes/code_of_ordinances?nodeId=TITXIZOPLAN_CH10ZO_S4REZOST")#"https://library.municode.com/ca/milpitas/codes/code_of_ordinances?nodeId=TITXIZOPLAN_CH10ZO_S11SPPLAR_XI-10-11.01PUIN")
+    muni_scraper = MuniCodeCrawler("https://library.municode.com/ca/milpitas/codes/code_of_ordinances?nodeId=TITXIZOPLAN_CH10ZO_S11SPPLAR_XI-10-11.01PUIN")
     muni_scraper.scrape_text()
 
 def main():

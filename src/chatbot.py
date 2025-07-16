@@ -46,7 +46,7 @@ Below is the document in markdown format from the following link {muni_code_url}
 
 Question: {query}\n Response: """
 
-GROUNDER_QUERY_TEMPLATE = """Is this answer accurate?
+GROUNDER_QUERY_TEMPLATE = """Is this answer accurate for the query "{query}" in regard to the city or municipality of {muni}?
 
 Response:
 """
@@ -207,12 +207,6 @@ def answer(muni_nav, client, muni, url, query, depth=0, definitions=""):
                     log("## VERIFYING\n\n")
                     contents = [
                         types.Content(
-                            role="user",
-                            parts=[
-                                types.Part.from_text(text=prompt)
-                            ]
-                        ),
-                        types.Content(
                             role="model",
                             parts=[
                                 types.Part.from_text(text=response["think"]),
@@ -302,7 +296,7 @@ def main():
     client = genai.Client(api_key=GOOGLE_API_KEY)
     state = "california"
     muni = "milpitas"
-    query = "Is there Land Value Recapture policies?" 
+    query = "Where can I build live work units?" 
     
     # manual input
     state = state or input("State: ").lower()
