@@ -133,6 +133,17 @@ def key_list(dict, seperator=", "):
     return result
 
 def answer(muni_nav: municode.MuniCodeCrawler, client, muni, query, depth=0):
+    """
+    Accesses the title/chapter/article/section names recursively until answer is found to query
+
+    :param muni_nav: municode scraper object
+    :param client: gemini client
+    :param muni: current municipality
+    :param query: input question
+    :param depth: depth of item. (0-title, 2-chapter, 3-article/section)
+    :return: prompt, answer to query, structured response in tuple
+    """
+
     code_names = muni_nav.scrape_codes(depth)
     log(f"## Selecting title/chapters/articles/sections...\n\n")
 
