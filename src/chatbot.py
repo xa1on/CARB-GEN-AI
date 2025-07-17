@@ -18,7 +18,8 @@ from google.genai import types
 from google.genai.errors import ServerError
 
 load_dotenv()
-GOOGLE_API_KEY = os.getenv('GOOGLE') # google cloud api key
+GEMINI_PAID_API_KEY = os.getenv('GEMINI_PAID') # google cloud api key
+GEMINI_FREE_API_KEY = os.getenv('GEMINI_FREE')
 LOGGING = True # whether or not log.md is generated
 LOG_PROMPTS = True # logs prompts generated
 
@@ -132,7 +133,7 @@ def key_list(dict, seperator=", "):
     result = result[:-(len(seperator))]
     return result
 
-def answer(muni_nav: municode.MuniCodeCrawler, client, muni, query, depth=0):
+def answer(muni_nav: municode.MuniCodeCrawler, client, muni, query, depth=0, free_client=None):
     """
     Accesses the title/chapter/article/section names recursively until answer is found to query
 
@@ -143,6 +144,9 @@ def answer(muni_nav: municode.MuniCodeCrawler, client, muni, query, depth=0):
     :param depth: depth of item. (0-title, 2-chapter, 3-article/section)
     :return: prompt, answer to query, structured response in tuple
     """
+
+    if not free_client:
+        free_client = client
 
     code_names = muni_nav.scrape_codes(depth)
     log(f"## Selecting title/chapters/articles/sections...\n\n")
@@ -188,7 +192,7 @@ def answer(muni_nav: municode.MuniCodeCrawler, client, muni, query, depth=0):
             #additional_links=(f"Definitions: {definitions_link}\n\n" if definitions_link else ""),
             query=query
         )
-        response = gemini_query(client, prompt, inst.CONFIGS["thinker"], MODELS["thinker"]) # prompt for answer to query
+        response = gemini_query(free_client, prompt, inst.CONFIGS["thinker"], MODELS["thinker"]) # prompt for answer to query
         if "(NONE)" in response["response"]:
             return None, None, None
         else:
@@ -214,7 +218,7 @@ def answer(muni_nav: municode.MuniCodeCrawler, client, muni, query, depth=0):
                     ]
                 )
             ]
-            grounding_response = {"response": "(YES)"}#gemini_query(client, contents, inst.CONFIGS["grounder"], MODELS["thinker"])
+            grounding_response = {"response": "(YES)"}#gemini_query(free_client, contents, inst.CONFIGS["grounder"], MODELS["thinker"])
             if "(YES)" in grounding_response["response"]:
                 structured_response = json.loads(gemini_query(client, response["response"], inst.CONFIGS["structurer"], MODELS["fast"])["response"])
             else:
@@ -222,7 +226,7 @@ def answer(muni_nav: municode.MuniCodeCrawler, client, muni, query, depth=0):
             return prompt, response, structured_response
     return None, None, None
 
-def init(muni_nav: municode.MuniCodeCrawler, state, muni, query, client):
+def init(muni_nav: municode.MuniCodeCrawler, state, muni, query, client, free_client=None):
     if LOGGING:
         with open("log.md", "w", encoding="utf-8") as f: # for testing purposes
             f.write(f"# LOG\n\n")
@@ -236,7 +240,7 @@ def init(muni_nav: municode.MuniCodeCrawler, state, muni, query, client):
 
     muni_nav.go(munis[state]["municipalities"][muni])
 
-    return answer(muni_nav, client, muni, query) # find relevant chapter/article and get answer
+    return answer(muni_nav, client, muni, query, free_client=free_client) # find relevant chapter/article and get answer
 
 def start_chat(response, client):
     contents = [
@@ -282,7 +286,8 @@ def start_chat(response, client):
 
 def main():
     municode_nav = municode.MuniCodeCrawler() # open crawler
-    client = genai.Client(api_key=GOOGLE_API_KEY)
+    free_client = genai.Client(api_key=GEMINI_FREE_API_KEY)
+    paid_client = genai.Client(api_key=GEMINI_PAID_API_KEY)
     state = "california"
     muni = "milpitas"
     query = "where to set up residential care facility?" 
@@ -292,9 +297,9 @@ def main():
     muni = muni or input("Municipality: ").lower()
     query = query or input("Question: ")
 
-    response = init(municode_nav, state, muni, query, client)
+    response = init(municode_nav, state, muni, query, paid_client, free_client=free_client)
     if response[1]:
-        start_chat(response, client)
+        start_chat(response, free_client)
     else:
         log("# No results found. This question is not covered in the code.")
     

@@ -13,7 +13,7 @@
     pip install -r requirements.txt
     ```
 
-- Set up .env file with ```GOOGLE``` environment variable containing your google cloud api key
+- Set up .env file with ```GEMINI_PAID``` and ```GEMINI_FREE``` environment variable containing your google cloud api keys
 
 ## How to use
 

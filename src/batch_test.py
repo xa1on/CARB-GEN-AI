@@ -7,14 +7,15 @@ from dotenv import load_dotenv
 from google import genai
 
 load_dotenv()
-GOOGLE_API_KEY = os.getenv('GOOGLE') # google cloud api key
+GEMINI_PAID_API_KEY = os.getenv('GEMINI_PAID') # google cloud api key
+GEMINI_FREE_API_KEY = os.getenv('GEMINI_FREE')
 
 REFERENCE = "src/data/8 cities 3 policies.csv"
 QUERIES = "src/data/QUERIES.json"
 RESULT = "src/data/result.csv"
 LOGS = "logs/"
 
-def batch(client, muni_nav, reference, queries, result, logs):
+def batch(client, muni_nav, reference, queries, result, logs, free_client=None):
     data = open(queries)
     query_ref = json.load(data)
     data.close()
@@ -35,7 +36,7 @@ def batch(client, muni_nav, reference, queries, result, logs):
             if not os.path.exists(f"{logs}{city}"):
                 os.makedirs(f"{logs}{city}")
             filename = f"""{city}/{policy_type}_log.md"""
-            _, _, structured_response = init(muni_nav, "california", city.lower(), query_ref[policy_type], client)
+            _, _, structured_response = init(muni_nav, "california", city.lower(), query_ref[policy_type], client, free_client)
             print(structured_response)
             answer = [city, policy_type, 'Y' if structured_response and (structured_response["binary_response"]) else 'N']
             answers.append(answer)
@@ -114,10 +115,11 @@ def evaluate(results, reference):
 
 
 def main():
-    client = genai.Client(api_key=GOOGLE_API_KEY)
+    free_client = genai.Client(api_key=GEMINI_FREE_API_KEY)
+    paid_client = genai.Client(api_key=GEMINI_PAID_API_KEY)
     municode_nav = municode.MuniCodeCrawler()
 
-    answer, reference = batch(client, municode_nav, REFERENCE, QUERIES, RESULT, LOGS)
+    answer, reference = batch(paid_client, municode_nav, REFERENCE, QUERIES, RESULT, LOGS, free_client=free_client)
     evaluate(answer, reference)
             
 def run_eval():
