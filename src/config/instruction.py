@@ -75,7 +75,8 @@ SORTER_SYS_INST = [
     """Add a relevance rating for each name. (decimal number from 0-10 with 0 being the least relevant)""",
     """Avoid anything that is repealed, obsolete or are sections similar to "summary history table", "dispostion table" or "city municipal code". Anything not relevant enough should be ignored (Don't include anything with low relevance).""",
     """The name should be the chapters/articles/sections names with no extra spaces, punctuation, only the exact names of the chapters/articles/sections in a list ordered from best to worst (most relevant to least relevant) with no modification.""",
-    """Terms like "inclusionary zoning", "density bonus", "commercial linkage fees", etc. typically are relevant to housing titles/chapters NOT zoning ones."""
+    """Terms like "inclusionary zoning", "density bonus", "commercial linkage fees", etc. typically are relevant to housing titles/chapters NOT zoning ones.""",
+    """DONT MODIFY THE NAMES PROVIDED. IF THE NAME CONTAINS A CHAPTER NUMBER, KEEP THE CHAPTER NUMBER"""
 ]
 
 GROUNDER_SYS_INST = ["""You are a helpful municipality policy analyst.""",

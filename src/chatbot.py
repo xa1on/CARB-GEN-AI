@@ -28,7 +28,7 @@ MUNICODE_MUNIS = "src/config/municode_munis.json"
 # model options
 MODELS = {
     "thinker": "gemini-2.5-flash",
-    "fast": "gemini-2.0-flash-lite"
+    "fast": "gemini-2.0-flash"
 }
 
 SORTER_QUERY_TEMPLATE = """Query: "{query}".
@@ -216,14 +216,13 @@ def answer(muni_nav: municode.MuniCodeCrawler, client, muni, query, depth=0):
             ]
             grounding_response = gemini_query(client, contents, inst.CONFIGS["grounder"], MODELS["thinker"])
             if "(YES)" in grounding_response["response"]:
-                structured_response = gemini_query(client, response["response"], inst.CONFIGS["structurer"], MODELS["fast"])
+                structured_response = json.loads(gemini_query(client, response["response"], inst.CONFIGS["structurer"], MODELS["fast"])["response"])
             else:
                 return None, None, None
             return prompt, response, structured_response
     return None, None, None
 
-def init(state, muni, query, client):
-    municode_nav = municode.MuniCodeCrawler() # open crawler
+def init(muni_nav: municode.MuniCodeCrawler, state, muni, query, client):
     if LOGGING:
         with open("log.md", "w", encoding="utf-8") as f: # for testing purposes
             f.write(f"# LOG\n\n")
@@ -235,9 +234,9 @@ def init(state, muni, query, client):
 
     log(f"#### Question: {query}\n\n-------------------\n\n")
 
-    municode_nav.go(munis[state]["municipalities"][muni])
+    muni_nav.go(munis[state]["municipalities"][muni])
 
-    return answer(municode_nav, client, muni, query) # find relevant chapter/article and get answer
+    return answer(muni_nav, client, muni, query) # find relevant chapter/article and get answer
 
 def start_chat(response, client):
     contents = [
@@ -260,7 +259,7 @@ def start_chat(response, client):
     while (True):
         prompt = input("Respond: ")
         if prompt == "/structure":
-            print(json.loads(gemini_query(client, response["response"], inst.CONFIGS["structurer"], MODELS["fast"])))
+            print(json.loads(gemini_query(client, response["response"], inst.CONFIGS["structurer"], MODELS["fast"])["response"]))
         else:
             contents.append(
                 types.Content(
@@ -282,21 +281,22 @@ def start_chat(response, client):
             )
 
 def main():
+    municode_nav = municode.MuniCodeCrawler() # open crawler
     client = genai.Client(api_key=GOOGLE_API_KEY)
     state = "california"
     muni = "milpitas"
-    query = "How many chickens can I keep in my backyard? They are kept in an enclosed pen." 
+    query = "where to set up residential care facility?" 
     
     # manual input
     state = state or input("State: ").lower()
     muni = muni or input("Municipality: ").lower()
     query = query or input("Question: ")
 
-    response = init(state, muni, query, client)
+    response = init(municode_nav, state, muni, query, client)
     if response[1]:
         start_chat(response, client)
     else:
-        log("# No results found. Answer is likely No")
+        log("# No results found. This question is not covered in the code.")
     
 
     
