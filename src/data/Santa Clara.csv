@@ -1,0 +1,185 @@
+City,Policy Type,Exists? (Y/N)
+Milpitas,Just Cause Eviction,Y
+Milpitas,Rent Stabilization or Rent Control,N
+Milpitas,Rent Review Board,Y
+Milpitas,Mobile Home Rent Control,Y
+Milpitas,SRO Preservation,N
+Milpitas,Condo Conversion Restrictions,Y
+Milpitas,Foreclosure Assistance,Y
+Milpitas,Affordable-Housing Linkage Fees,Y
+Milpitas,Commercial Linkage Fees,Y
+Milpitas,Housing Trust Fund,Y
+Milpitas,Inclusionary Zoning,Y
+Milpitas,Density Bonus,Y
+Milpitas,Community Land Trusts,Y
+Milpitas,First Source Hiring Program,N
+Milpitas,ADUs,Y
+Milpitas,Housing Overlay Zones,Y
+Milpitas,Land Value Recapture,N
+Milpitas,Unsubsidized Affordable Housing Preservation (NOAH),N
+Milpitas,Subsidized Housing Preservation,N
+Milpitas,Housing Rehabilitation Programs,N
+Milpitas,Tenant Opportunity to Purchase,N
+Milpitas,Rental Assistance Programs,Y
+Milpitas,Tenant Right to Counsel,N
+San Jose,Just Cause Eviction,Y
+San Jose,Rent Stabilization or Rent Control,Y
+San Jose,Rent Review Board,N
+San Jose,Mobile Home Rent Control,Y
+San Jose,SRO Preservation,N
+San Jose,Condo Conversion Restrictions,Y
+San Jose,Foreclosure or Homeownership Assistance,Y
+San Jose,Affordable-Housing Linkage Fees,Y
+San Jose,Commercial Linkage Fees,Y
+San Jose,Inclusionary Zoning,Y
+San Jose,Density Bonus,Y
+San Jose,Community Land Trusts,Y
+San Jose,First Source Hiring Program,N
+San Jose,ADUs,Y
+San Jose,Housing Overlay Zones,Y
+San Jose,Unsubsidized Affordable Housing Preservation (NOAH),N
+San Jose,Subsidized Housing Preservation,Y
+San Jose,Housing Rehabilitation Programs,Y
+San Jose,Tenant Opportunity to Purchase,Y
+San Jose,Rental Assistance Programs,N
+San Jose,Tenant Right to Counsel,N
+San Jose,Short Term Rental Ban/Limitation,Y
+San Jose,Pass Through Limitation,Y
+Mountain View,Just Cause Eviction,Y
+Mountain View,Rent Stabilization or Rent Control,Y
+Mountain View,Rent Review Board,Y
+Mountain View,Mobile Home Rent Control,Y
+Mountain View,SRO Preservation,N
+Mountain View,Condo Conversion Restrictions,Y
+Mountain View,Foreclosure Assistance,Y
+Mountain View,Affordable-Housing Linkage Fees,Y
+Mountain View,Commercial Linkage Fees,Y
+Mountain View,Inclusionary Zoning,Y
+Mountain View,Density Bonus,Y
+Mountain View,Community Land Trusts,Y
+Mountain View,First Source Hiring Program,N
+Mountain View,ADUs,Y
+Mountain View,Housing Overlay Zones,N
+Mountain View,Unsubsidized Affordable Housing Preservation (NOAH),Y
+Mountain View,Subsidized Housing Preservation,N
+Mountain View,Housing Rehabilitation Programs,Y
+Mountain View,Tenant Opportunity to Purchase,N
+Mountain View,Rental Assistance Programs,Y
+Mountain View,Tenant Right to Counsel,
+Mountain View,Short Term Rental Ban/Limitation,Y
+Mountain View,Pass Through Limitation,Y
+Morgan Hill,Just Cause Eviction,N
+Morgan Hill,Rent Stabilization or Rent Control,N
+Morgan Hill,Rent Review Board,N
+Morgan Hill,Mobile Home Rent Control,Y
+Morgan Hill,SRO Preservation,N
+Morgan Hill,Condo Conversion Restrictions,Y
+Morgan Hill,Foreclosure or Homeownership Assistance,N
+Morgan Hill,Affordable-Housing Linkage Fees,Y
+Morgan Hill,Commercial Linkage Fees,N
+Morgan Hill,Inclusionary Zoning,Y
+Morgan Hill,Density Bonus,Y
+Morgan Hill,Community Land Trusts,Y
+Morgan Hill,First Source Hiring Program,N
+Morgan Hill,ADUs,N
+Morgan Hill,Housing Overlay Zones,N
+Morgan Hill,Unsubsidized Affordable Housing Preservation (NOAH),N
+Morgan Hill,Subsidized Housing Preservation,Y
+Morgan Hill,Housing Rehabilitation Programs,Y
+Morgan Hill,Tenant Opportunity to Purchase,N
+Morgan Hill,Rental Assistance Programs,N
+Morgan Hill,Tenant Right to Counsel,N
+Morgan Hill,Short Term Rental Ban/Limitation,N
+Morgan Hill,Pass Through Limitation,N
+Campbell,Just Cause Eviction,Y
+Campbell,Rent Stabilization or Rent Control,Y
+Campbell,Rent Review Board,Y
+Campbell,Mobile Home Rent Control,Y
+Campbell,SRO Preservation,N
+Campbell,Condo Conversion Restrictions,N
+Campbell,Foreclosure or Homeownership Assistance,N
+Campbell,Affordable-Housing Linkage Fees,Y
+Campbell,Commercial Linkage Fees,N
+Campbell,Inclusionary Zoning,Y
+Campbell,Density Bonus,Y
+Campbell,Community Land Trusts,Y
+Campbell,First Source Hiring Program,N
+Campbell,ADUs,Y
+Campbell,Housing Overlay Zones,Y
+Campbell,Unsubsidized Affordable Housing Preservation (NOAH),N
+Campbell,Subsidized Housing Preservation,N
+Campbell,Housing Rehabilitation Programs,Y
+Campbell,Tenant Opportunity to Purchase,N
+Campbell,Rental Assistance Programs,Y
+Campbell,Tenant Right to Counsel,Y
+Campbell,Short Term Rental Ban/Limitation,N
+Campbell,Pass Through Limitation,N
+Los Gatos,Just Cause Eviction,N
+Los Gatos,Rent Stabilization or Rent Control,Y
+Los Gatos,Rent Review Board,Y
+Los Gatos,Mobile Home Rent Control,Y
+Los Gatos,SRO Preservation,N
+Los Gatos,Condo Conversion Restrictions,N
+Los Gatos,Foreclosure or Homeownership Assistance,Y
+Los Gatos,Affordable-Housing Linkage Fees,Y
+Los Gatos,Commercial Linkage Fees,N
+Los Gatos,Inclusionary Zoning,Y
+Los Gatos,Density Bonus,Y
+Los Gatos,Community Land Trusts,N
+Los Gatos,First Source Hiring Program,N
+Los Gatos,ADUs,Y
+Los Gatos,Housing Overlay Zones,Y
+Los Gatos,Unsubsidized Affordable Housing Preservation (NOAH),N
+Los Gatos,Subsidized Housing Preservation,N
+Los Gatos,Housing Rehabilitation Programs,Y
+Los Gatos,Tenant Opportunity to Purchase,N
+Los Gatos,Rental Assistance Programs,Y
+Los Gatos,Tenant Right to Counsel,Y
+Los Gatos,Short Term Rental Ban/Limitation,Y
+Los Gatos,Pass Through Limitation,N
+Los Altos,Just Cause Eviction,N
+Los Altos,Rent Stabilization or Rent Control,N
+Los Altos,Rent Review Board,N
+Los Altos,Mobile Home Rent Control,N
+Los Altos,SRO Preservation,N
+Los Altos,Condo Conversion Restrictions,Y
+Los Altos,Foreclosure or Homeownership Assistance,N
+Los Altos,Affordable-Housing Linkage Fees,Y
+Los Altos,Commercial Linkage Fees,Y
+Los Altos,Inclusionary Zoning,Y
+Los Altos,Density Bonus,Y
+Los Altos,Community Land Trusts,Y
+Los Altos,First Source Hiring Program,N
+Los Altos,ADUs,Y
+Los Altos,Housing Overlay Zones,N
+Los Altos,Unsubsidized Affordable Housing Preservation (NOAH),N
+Los Altos,Subsidized Housing Preservation,N
+Los Altos,Housing Rehabilitation Programs,N
+Los Altos,Tenant Opportunity to Purchase,N
+Los Altos,Rental Assistance Programs,Y
+Los Altos,Tenant Right to Counsel,N
+Los Altos,Short Term Rental Ban/Limitation,Y
+Los Altos,Pass Through Limitation,N
+Saratoga,Just Cause Eviction,N
+Saratoga,Rent Stabilization or Rent Control,N
+Saratoga,Rent Review Board,N
+Saratoga,Mobile Home Rent Control,N
+Saratoga,SRO Preservation,Y
+Saratoga,Condo Conversion Restrictions,Y
+Saratoga,Foreclosure Assistance,N
+Saratoga,Affordable-Housing Linkage Fees,Y
+Saratoga,Commercial Linkage Fees,N
+Saratoga,Inclusionary Zoning,Y
+Saratoga,Density Bonus,Y
+Saratoga,Community Land Trusts,Y
+Saratoga,First Source Hiring Program,N
+Saratoga,ADUs,Y
+Saratoga,Housing Overlay Zones,Y
+Saratoga,Unsubsidized Affordable Housing Preservation (NOAH),N
+Saratoga,Subsidized Housing Preservation,N
+Saratoga,Housing Rehabilitation Programs,N
+Saratoga,Tenant Opportunity to Purchase,N
+Saratoga,Rental Assistance Programs,N
+Saratoga,Tenant Right to Counsel,N
+Saratoga,Short Term Rental Ban/Limitation,N
+Saratoga,Pass Through Limitation,N
