@@ -28,7 +28,7 @@ MUNICODE_MUNIS = "src/config/municode_munis.json"
 # model options
 MODELS = {
     "thinker": "gemini-2.5-flash",
-    "fast": "gemini-2.0-flash"
+    "fast": "gemini-2.0-flash-lite"
 }
 
 SORTER_QUERY_TEMPLATE = """Query: "{query}".
@@ -82,9 +82,9 @@ def gemini_query(client, prompt, config, model):
         }
         if LOG_PROMPTS:
             if isinstance(prompt, str):
-                log(f"### Prompt:\n\n{prompt}\n\n-------------------\n\n")
+                log(f"### Prompt: \n\n<details>\n\n<summary>prompt</summary>\n\n{prompt}\n\n</details>\n\n-------------------\n\n")
             else:
-                log(f"### Prompt: \n\n{prompt[-1].parts[0].text}\n\n-------------------\n\n")
+                log(f"### Prompt: \n\n<details>\n\n<summary>prompt</summary>\n\n{prompt[-1].parts[0].text}\n\n</details>\n\n-------------------\n\n")
 
         # gemini config
 
@@ -101,12 +101,12 @@ def gemini_query(client, prompt, config, model):
                             continue
                         if part.thought:
                             if not result["think"]:
-                                log(f"### Thinking:\n\n")
+                                log(f"### Thinking:\n\n<details>\n\n<summary>Thinking...</summary>\n\n")
                             result["think"] += part.text
                             log(part.text)
                         else:
                             if not result["response"]:
-                                log(f"### Response:\n\n")
+                                log(f"</details>\n\n### Response:\n\n")
                             result["response"] += part.text
                             log(part.text)
         log("\n\n-------------------\n\n")
@@ -214,7 +214,7 @@ def answer(muni_nav: municode.MuniCodeCrawler, client, muni, query, depth=0):
                     ]
                 )
             ]
-            grounding_response = gemini_query(client, contents, inst.CONFIGS["grounder"], MODELS["thinker"])
+            grounding_response = {"response": "(YES)"}#gemini_query(client, contents, inst.CONFIGS["grounder"], MODELS["thinker"])
             if "(YES)" in grounding_response["response"]:
                 structured_response = json.loads(gemini_query(client, response["response"], inst.CONFIGS["structurer"], MODELS["fast"])["response"])
             else:

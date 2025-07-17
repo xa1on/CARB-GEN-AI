@@ -1,49 +1,25 @@
 City,Policy Type,Exists? (Y/N)
-
 Milpitas,Just Cause Eviction,Y
-
 Milpitas,Rent Stabilization or Rent Control,N
-
 Milpitas,Rent Review Board,Y
-
 San Jose,Just Cause Eviction,Y
-
 San Jose,Rent Stabilization or Rent Control,Y
-
 San Jose,Rent Review Board,N
-
 Mountain View,Just Cause Eviction,Y
-
 Mountain View,Rent Stabilization or Rent Control,Y
-
 Mountain View,Rent Review Board,Y
-
 Morgan Hill,Just Cause Eviction,N
-
 Morgan Hill,Rent Stabilization or Rent Control,N
-
 Morgan Hill,Rent Review Board,N
-
 Campbell,Just Cause Eviction,Y
-
 Campbell,Rent Stabilization or Rent Control,Y
-
 Campbell,Rent Review Board,Y
-
 Los Gatos,Just Cause Eviction,N
-
 Los Gatos,Rent Stabilization or Rent Control,Y
-
 Los Gatos,Rent Review Board,Y
-
 Los Altos,Just Cause Eviction,N
-
 Los Altos,Rent Stabilization or Rent Control,N
-
 Los Altos,Rent Review Board,N
-
 Saratoga,Just Cause Eviction,N
-
 Saratoga,Rent Stabilization or Rent Control,N
-
 Saratoga,Rent Review Board,N

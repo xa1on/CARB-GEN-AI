@@ -19,7 +19,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 SNAPSHOTS_DIR = "snapshots"
 LOADING_CSS_SELECTOR = ".fa-2x"
-TIMEOUT = 60
+TIMEOUT = 120
 INDEX_CSS = "a[class=index-link]"
 CODE_CSS = "a[class=toc-item-heading]"
 TEXT_CSS = "ul.chunks.list-unstyled.small-padding"
