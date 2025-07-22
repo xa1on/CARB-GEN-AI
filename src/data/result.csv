@@ -2,12 +2,25 @@ City,Policy Type,Exists? (Y/N)
 Milpitas,Just Cause Eviction,Y
 Milpitas,Rent Stabilization or Rent Control,N
 Milpitas,Rent Review Board,Y
+Milpitas,Mobile Home Rent Control,Y
+Milpitas,SRO Preservation,N
+Milpitas,Condo Conversion Restrictions,Y
+Milpitas,Foreclosure Assistance,N
+Milpitas,Affordable-Housing Linkage Fees,Y
+Milpitas,Commercial Linkage Fees,Y
+Milpitas,Housing Trust Fund,Y
+Milpitas,Inclusionary Zoning,Y
+Milpitas,Density Bonus,N
+Milpitas,Community Land Trusts,N
+Milpitas,First Source Hiring Program,N
+Milpitas,ADUs,Y
+Milpitas,Housing Overlay Zones,N
+Milpitas,Land Value Recapture,N
+Milpitas,Unsubsidized Affordable Housing Preservation (NOAH),N
+Milpitas,Subsidized Housing Preservation,N
+Milpitas,Housing Rehabilitation Programs,N
+Milpitas,Tenant Opportunity to Purchase,N
+Milpitas,Rental Assistance Programs,N
+Milpitas,Tenant Right to Counsel,N
 San Jose,Just Cause Eviction,Y
 San Jose,Rent Stabilization or Rent Control,Y
-San Jose,Rent Review Board,Y
-Mountain View,Just Cause Eviction,Y
-Mountain View,Rent Stabilization or Rent Control,Y
-Mountain View,Rent Review Board,Y
-Morgan Hill,Just Cause Eviction,N
-Morgan Hill,Rent Stabilization or Rent Control,N
-Morgan Hill,Rent Review Board,N

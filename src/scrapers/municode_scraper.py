@@ -22,6 +22,7 @@ LOADING_CSS_SELECTOR = ".fa-2x"
 TIMEOUT = 120
 INDEX_CSS = "a[class=index-link]"
 CODE_CSS = "a[class=toc-item-heading]"
+BODY_CSS = "#codesContent"
 TEXT_CSS = "ul.chunks.list-unstyled.small-padding"
 
 DEPTH = {
@@ -96,6 +97,10 @@ class MuniCodeCrawler:
         self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, CODE_CSS)))
         self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
 
+    def wait_body(self):
+        self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, BODY_CSS)))
+        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
+
     def wait_text(self):
         self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, TEXT_CSS)))
         self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
@@ -107,6 +112,7 @@ class MuniCodeCrawler:
         :param self:
         :return: True/False depending on whether or not child page exists
         """
+        self.wait_body()
         return len(self.soup.select("ul.codes-toc-list.list-unstyled")) > 0
     
     def scrape_index_link(self, requires_code=False):
@@ -169,6 +175,7 @@ class MuniCodeCrawler:
         :param self:
         :return: string of the output in markdown format
         """
+        self.wait_body()
         self.wait_text()
         def text_selector(tag):
             # only select text with h2, h3, p, table tags

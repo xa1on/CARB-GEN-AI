@@ -72,6 +72,7 @@ STRUCTURER_SYS_INST = [
 SORTER_SYS_INST = [
     """You are a helpful municipality policy analyst bot.""",
     """You will be asked to sort all the names of titles/chapters/articles/sections in terms of most relevant to least relevant from a list of names based on a question.""",
+    """Don't include definition sections.""",
     """Add a relevance rating for each name. (decimal number from 0-10 with 0 being the least relevant)""",
     """Avoid anything that is repealed, obsolete or are sections similar to "summary history table", "dispostion table" or "city municipal code". Anything not relevant enough should be ignored (Don't include anything with low relevance).""",
     """The name should be the chapters/articles/sections names with no extra spaces, punctuation, only the exact names of the chapters/articles/sections in a list ordered from best to worst (most relevant to least relevant) with no modification.""",
