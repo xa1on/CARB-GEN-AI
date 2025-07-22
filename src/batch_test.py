@@ -56,14 +56,14 @@ def batch(client, muni_nav, reference, queries, result, logs, free_client=None):
             if not os.path.exists(f"{logs}{city}"):
                 os.makedirs(f"{logs}{city}")
             filename = f"""{city}/{policy_type.replace('/', ' ')}_log.md"""
-            _, _, structured_response = init(muni_nav, "california", city.lower(), query_ref[policy_type], client, free_client)
+            _, _, structured_response = init(muni_nav, "california", city.lower(), query_ref[policy_type], client, free_client=free_client)
             print(structured_response)
             answer = [city, policy_type, 'Y' if structured_response and (structured_response["binary_response"]) else 'N']
             answers.append(answer)
-            print(answers)
             with open(result, mode='a') as csv_result_file: # incremental updates
                 csv_result_file.write(','.join(answer) + '\n')
             os.replace("log.md", logs + filename) # save log
+            run_eval()
         return answers, list(csv_reader)
 
 def evaluate(results, reference):
@@ -120,7 +120,7 @@ def evaluate(results, reference):
     print(f"total: {total}, correct: {correct}, accuracy: {correct / total}, tp: {tp}, tn: {tn}, fn: {fn}, fp: {fp}")
 
     for policy, result in policy_types.items():
-        print(f"{policy}: {result}")
+        print(f"{policy} (accuracy: {result["correct"] / result["total"]}): {result}")
         
     return {
         "total": total,

@@ -146,6 +146,7 @@ def answer(muni_nav: municode.MuniCodeCrawler, client, muni, query, depth=0, fre
     """
 
     if not free_client:
+        print("FREE CLIENT NOT FOUND. USING PAID.")
         free_client = client
 
     code_names = muni_nav.scrape_codes(depth)
@@ -178,7 +179,7 @@ def answer(muni_nav: municode.MuniCodeCrawler, client, muni, query, depth=0, fre
         for page in response_json:
             log(f"### Navigating to [{page["name"]}]({code_names[page["name"]]})\n\n")
             muni_nav.go(code_names[page["name"]])
-            response = answer(muni_nav, client, muni, query, depth + 1)
+            response = answer(muni_nav, client, muni, query, depth + 1, free_client=free_client)
             if response[0]:
                 return response
             else:
