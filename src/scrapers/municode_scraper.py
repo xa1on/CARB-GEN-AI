@@ -14,8 +14,12 @@ import json
 from bs4 import BeautifulSoup, Tag
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+
+
+
 
 SNAPSHOTS_DIR = "snapshots"
 LOADING_CSS_SELECTOR = ".fa-2x"
@@ -24,12 +28,34 @@ INDEX_CSS = "a[class=index-link]"
 CODE_CSS = "a[class=toc-item-heading]"
 BODY_CSS = "#codesContent"
 TEXT_CSS = "ul.chunks.list-unstyled.small-padding"
+SEARCH_CSS = "#headerSearch"
+SEARCH_RESULT_CSS = "div[class=search-result-body]"
 
 DEPTH = {
     "Titles": 0,
     "Chapters": 1,
     "Articles": 2
 }
+
+def stripped_splitter(text, separator=' '):
+    # split by newline and strip leading and tailing spaces
+    result = ""
+    split = text.split('\n')
+    for text_line in split:
+        stripped = text_line.strip()
+        if stripped:
+            result += separator + stripped
+    return result[len(separator):]
+
+class SearchResult:
+    def __init__(self, href, name, chapter_name, related_text):
+        self.href = href
+        self.name = name
+        self.chapter_name = chapter_name
+        self.related_text = related_text
+    
+    def __repr__(self):
+        return f"href={self.href}, name={self.name}, chapter_name={self.chapter_name}, related_text={self.related_text}"
 
 class MuniCodeCrawler:
     home_url = "https://library.municode.com"
@@ -93,6 +119,18 @@ class MuniCodeCrawler:
         self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, CSS)))
         self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
 
+    def search(self, search_term):
+        """
+        Searches specified search term in municode
+
+        :param search_term: search term to use for search
+        """
+        search_bar = self.browser.find_element(By.CSS_SELECTOR, SEARCH_CSS)
+        search_bar.send_keys(search_term, Keys.RETURN)
+        self.url = self.browser.current_url
+        self.wait.until(EC.invisibility_of_element_located((By.CSS_SELECTOR, LOADING_CSS_SELECTOR)))
+        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")        
+
     def contains_child(self):
         """
         Checks if current page contains any children pages. (ex: a chapter contains sub-chapers/articles/sections)
@@ -103,6 +141,24 @@ class MuniCodeCrawler:
         self.wait_visibility(BODY_CSS)
         return len(self.soup.select("ul.codes-toc-list.list-unstyled")) > 0
     
+    def scrape_search(self):
+        """
+        Scrapes search results from search page
+
+        :param self:
+        :return: dictionary in format {[search result section]: [Search Result object]}
+        """
+        self.wait_visibility(SEARCH_RESULT_CSS)
+        search_results = self.soup.select(SEARCH_RESULT_CSS)
+        result = {}
+        for search_result in search_results:
+            link = search_result.select_one("a.text-lg")
+            name = link.text.replace('\n', '').replace('*', '')
+            related_text = stripped_splitter(search_result.find("div", {"ng-bind-html": "::hit.ContentFragment"}).text)
+            directories = search_result.select_one("ol.breadcrumb").select("a")
+            result[name] = SearchResult(href=link["href"], name=name, chapter_name=stripped_splitter(directories[-1].text).replace('*', ''), related_text=related_text)
+        return result
+
     def scrape_index_link(self, requires_code=False):
         """
         Scrapes any items with index-link class from page, with name tied to the link.
@@ -175,16 +231,6 @@ class MuniCodeCrawler:
 
         def bold_text_selector(tag):
             return tag.name == "b" or (tag.name == "span" and tag.has_attr("class") and tag.get("class")[0] == "bold")
-
-        def stripped_splitter(text, separator=' '):
-            # split by newline and strip leading and tailing spaces
-            result = ""
-            split = text.split('\n')
-            for text_line in split:
-                stripped = text_line.strip()
-                if stripped:
-                    result += separator + stripped
-            return result[len(separator):]
 
         result = ""
         text_block = self.soup.select_one("ul.chunks.list-unstyled.small-padding") # contains the text
@@ -303,6 +349,12 @@ def test_text_scrape():
     muni_scraper = MuniCodeCrawler("https://library.municode.com/ca/milpitas/codes/code_of_ordinances?nodeId=TITXIZOPLAN_CH10ZO_S11SPPLAR_XI-10-11.01PUIN")
     muni_scraper.scrape_text()
 
+def test_search():
+    muni_scraper = MuniCodeCrawler("https://library.municode.com/ca/campbell/codes/code_of_ordinances")
+    muni_scraper.search("Eviction")
+    print(muni_scraper.scrape_search())
+
+
 def main():
     muni_scraper = MuniCodeCrawler()
     states = muni_scraper.scrape_states() # gets a dict of states
@@ -329,4 +381,4 @@ def main():
 
 
 if __name__ == "__main__":
-    test_text_scrape()
+    test_search()
