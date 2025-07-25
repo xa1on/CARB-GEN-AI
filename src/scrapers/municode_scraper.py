@@ -89,20 +89,8 @@ class MuniCodeCrawler:
         self.wait.until(EC.invisibility_of_element_located((By.CSS_SELECTOR, LOADING_CSS_SELECTOR)))
         self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
     
-    def wait_muni(self):
-        self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, INDEX_CSS)))
-        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
-
-    def wait_codes(self):
-        self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, CODE_CSS)))
-        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
-
-    def wait_body(self):
-        self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, BODY_CSS)))
-        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
-
-    def wait_text(self):
-        self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, TEXT_CSS)))
+    def wait_visibility(self, CSS):
+        self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, CSS)))
         self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
 
     def contains_child(self):
@@ -112,7 +100,7 @@ class MuniCodeCrawler:
         :param self:
         :return: True/False depending on whether or not child page exists
         """
-        self.wait_body()
+        self.wait_visibility(BODY_CSS)
         return len(self.soup.select("ul.codes-toc-list.list-unstyled")) > 0
     
     def scrape_index_link(self, requires_code=False):
@@ -124,7 +112,7 @@ class MuniCodeCrawler:
         :param requires_code: whether or not what needs to be scraped requires it link to the code of ordinances
         :return: dictionary in the format {[item_name]: [link to item]}
         """
-        self.wait_muni()
+        self.wait_visibility(INDEX_CSS)
         items = self.soup.select(INDEX_CSS)
         result = {item.text.lower(): item["href"] + ("/codes/code_of_ordinances" if requires_code and "/codes/code_of_ordinances" not in item["href"] else "") for item in items}
         return result
@@ -140,7 +128,7 @@ class MuniCodeCrawler:
         """
         if depth: # because municode is stupid, it works like this: (title: 0, chapter: 2, article/section: 3), therefore, we need to index up
             depth += 1
-        self.wait_codes()
+        self.wait_visibility(CODE_CSS)
         result = {}
         codes = self.soup.find_all("li", {"depth": depth})
         for code in codes:
@@ -175,8 +163,8 @@ class MuniCodeCrawler:
         :param self:
         :return: string of the output in markdown format
         """
-        self.wait_body()
-        self.wait_text()
+        self.wait_visibility(BODY_CSS)
+        self.wait_visibility(TEXT_CSS)
         def text_selector(tag):
             # only select text with h2, h3, p, table tags
             return tag.name == "h2" or tag.name == "h3" or tag.name == "p" or tag.name == "table" or (tag.name == "div" and tag.has_attr("class") and tag.get("class")[0] == "footnote-content")

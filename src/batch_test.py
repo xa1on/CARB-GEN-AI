@@ -75,19 +75,19 @@ def evaluate(results, reference):
     fn = 0
     tp = 0
     tn = 0
-    policy_types = {}
+    by_policy_type = {}
+    by_city = {}
     for result in results:
         if result:
             ref_city, ref_policy_type, ref_response = reference[index]
             city, policy_type, response = result
             if ref_city != city or ref_policy_type != policy_type:
                 assert f"MISMATCH: REFERENCE: {reference[index]} -> ANSWER: {result}"
-            
             if not field_names:
                 field_names = result
             else:
-                if not policy_type in policy_types:
-                    policy_types[policy_type] = {
+                if not policy_type in by_policy_type:
+                    by_policy_type[policy_type] = {
                         "total": 0,
                         "correct": 0,
                         "errors": {
@@ -97,32 +97,46 @@ def evaluate(results, reference):
                             "fn": 0
                         }
                     }
-                policy = policy_types[policy_type]
-                policy["total"] += 1
+                if not city in by_city:
+                    by_city[city] = {
+                        "total": 0,
+                        "correct": 0,
+                        "errors": {
+                            "tp": 0,
+                            "tn": 0,
+                            "fp": 0,
+                            "fn": 0
+                        }
+                    }
+                policy_dict = by_policy_type[policy_type]
+                policy_dict["total"] += 1
+                city_dict = by_city[city]
+                city_dict["total"] += 1
                 if ref_response == response:
-                    policy["correct"] += 1
+                    policy_dict["correct"] += 1
+                    city_dict["correct"] += 1
                     correct += 1
                     if ref_response == "Y":
-                        policy["errors"]["tp"] += 1
+                        policy_dict["errors"]["tp"] += 1
+                        city_dict["errors"]["tp"] += 1
                         tp += 1
                     else:
-                        policy["errors"]["tn"] += 1
+                        policy_dict["errors"]["tn"] += 1
+                        city_dict["errors"]["tn"] += 1
                         tn += 1
                 else:
                     if ref_response == "Y":
-                        policy["errors"]["fn"] += 1
+                        policy_dict["errors"]["fn"] += 1
+                        city_dict["errors"]["fn"] += 1
                         fn += 1
                     else:
-                        policy["errors"]["fp"] += 1
+                        policy_dict["errors"]["fp"] += 1
+                        city_dict["errors"]["fp"] += 1
                         fp += 1
                 total += 1
             index += 1
-    print(f"total: {total}, correct: {correct}, accuracy: {correct / total}, tp: {tp}, tn: {tn}, fn: {fn}, fp: {fp}")
 
-    for policy, result in policy_types.items():
-        print(f"{policy} (accuracy: {result["correct"] / result["total"]}): {result}")
-        
-    return {
+    final_response = {
         "total": total,
         "correct": correct,
         "errors": {
@@ -131,8 +145,25 @@ def evaluate(results, reference):
             "fp": fp,
             "fn": fn
         },
-        "indiv_policies": policy_types
     }
+
+    by_policy_type = dict(sorted(by_policy_type.items(), key=lambda x: x[1]["correct"] / x[1]["total"], reverse=True))
+    by_city = dict(sorted(by_city.items(), key=lambda x: x[1]["correct"] / x[1]["total"], reverse=True))
+
+    print("\n---EVALUATION---")
+    print(f" - {"total:":55} (accuracy: {correct / total:.2f}): {final_response}\n")
+    print("---BY POLICY---")
+    for policy_name, result in by_policy_type.items():
+        print(f" - {policy_name:55} (accuracy: {result["correct"] / result["total"]:.2f}): {result}")
+    print("\n---BY CITY---")
+    for city_name, result in by_city.items():
+        print(f" - {city_name:55} (accuracy: {result["correct"] / result["total"]:.2f}): {result}")
+    print()
+
+    final_response["indiv_policies"] = by_policy_type
+    final_response["indiv_cities"] = by_city
+
+    return final_response
 
 
 def main():
@@ -151,4 +182,4 @@ def run_eval():
             evaluate(list(result), list(reference))
 
 if __name__ == "__main__":
-    main()
+    run_eval()
