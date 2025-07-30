@@ -31,13 +31,13 @@ TEXT_CSS = "ul.chunks.list-unstyled.small-padding"
 SEARCH_CSS = "#headerSearch"
 SEARCH_RESULT_CSS = "div[class=search-result-body]"
 
-DEPTH = {
+DEPTH: dict[str: int] = {
     "Titles": 0,
     "Chapters": 1,
     "Articles": 2
 }
 
-def stripped_splitter(text, separator=' '):
+def stripped_splitter(text: str, separator=' ') -> str:
     # split by newline and strip leading and tailing spaces
     result = ""
     split = text.split('\n')
@@ -48,18 +48,18 @@ def stripped_splitter(text, separator=' '):
     return result[len(separator):]
 
 class SearchResult:
-    def __init__(self, href, name, chapter_name, related_text):
+    def __init__(self, href: str, name: str, chapter_name: str, related_text: str):
         self.href = href
         self.name = name
         self.chapter_name = chapter_name
         self.related_text = related_text
     
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"href={self.href}, name={self.name}, chapter_name={self.chapter_name}, related_text={self.related_text}"
 
 class MuniCodeCrawler:
-    home_url = "https://library.municode.com"
-    def __init__(self, starting_url=home_url):
+    home_url: str = "https://library.municode.com"
+    def __init__(self, starting_url: str=home_url):
         """
         Create new MuniCodeCrawler Object
 
@@ -67,57 +67,32 @@ class MuniCodeCrawler:
         :return: returns new object
         """
         chrome_options = webdriver.ChromeOptions()
+
         chrome_options.add_argument("--log-level=1")
+
         self.browser = webdriver.Chrome(options = chrome_options)
-        self.wait = WebDriverWait(self.browser, TIMEOUT)
+        self.wait= WebDriverWait(self.browser, TIMEOUT)
+
+
         self.browser.set_window_size(1024, 1024)
         self.go(starting_url)
-
-    def get_url(self):
-        """
-        Get current url
-
-        :param self:
-        :return: current url value
-        """
-        return self._url
     
-    def set_url(self, url):
-        """
-        Set current url to url
-
-        :param self:
-        :param url: url to set object to
-        :return:
-        """
-        self._url = url
-    
-    def take_snapshot(self):
-        """
-        Takes a .html snapshot file of current page
-
-        :param self:
-        :return:
-        """
-        with open(f"{SNAPSHOTS_DIR}\\{str(time.asctime(time.localtime(time.time()))).replace(":", "-")}-snap.html", "w", encoding="utf-8") as f:
-            f.write(str(self.soup))#self.browser.page_source)
-    
-    def go(self, url=None):
+    def go(self, url):
         """
         Goes to specified url and waits for loading to finish 
 
         :param self:
         :return:
         """
-        if url: # if url is specified, go to url specified
-            self.url = url
-        self.browser.get(self._url)
+        self.browser.get(url)
         self.wait.until(EC.invisibility_of_element_located((By.CSS_SELECTOR, LOADING_CSS_SELECTOR)))
         self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
+        return self
     
     def wait_visibility(self, CSS):
         self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, CSS)))
         self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
+        return self
 
     def search(self, search_term):
         """
@@ -127,11 +102,11 @@ class MuniCodeCrawler:
         """
         search_bar = self.browser.find_element(By.CSS_SELECTOR, SEARCH_CSS)
         search_bar.send_keys(search_term, Keys.RETURN)
-        self.url = self.browser.current_url
         self.wait.until(EC.invisibility_of_element_located((By.CSS_SELECTOR, LOADING_CSS_SELECTOR)))
-        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")        
+        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
+        return self
 
-    def contains_child(self):
+    def contains_child(self) -> bool:
         """
         Checks if current page contains any children pages. (ex: a chapter contains sub-chapers/articles/sections)
 
@@ -141,16 +116,16 @@ class MuniCodeCrawler:
         self.wait_visibility(BODY_CSS)
         return len(self.soup.select("ul.codes-toc-list.list-unstyled")) > 0
     
-    def scrape_search(self):
+    def scrape_search(self) -> dict[str: SearchResult]:
         """
         Scrapes search results from search page
 
         :param self:
-        :return: dictionary in format {[search result section]: [Search Result object]}
+        :return: list of SearchResults
         """
         self.wait_visibility(SEARCH_RESULT_CSS)
         search_results = self.soup.select(SEARCH_RESULT_CSS)
-        result = {}
+        result: dict[str: SearchResult] = {}
         for search_result in search_results:
             link = search_result.select_one("a.text-lg")
             name = link.text.replace('\n', '').replace('*', '')
@@ -159,21 +134,19 @@ class MuniCodeCrawler:
             result[name] = SearchResult(href=link["href"], name=name, chapter_name=stripped_splitter(directories[-1].text).replace('*', ''), related_text=related_text)
         return result
 
-    def scrape_index_link(self, requires_code=False):
+    def scrape_index_link(self) -> dict[str: str]:
         """
         Scrapes any items with index-link class from page, with name tied to the link.
         Selecting states and selecting municipalities uses index-link
 
         :param self:
-        :param requires_code: whether or not what needs to be scraped requires it link to the code of ordinances
         :return: dictionary in the format {[item_name]: [link to item]}
         """
         self.wait_visibility(INDEX_CSS)
         items = self.soup.select(INDEX_CSS)
-        result = {item.text.lower(): item["href"] + ("/codes/code_of_ordinances" if requires_code and "/codes/code_of_ordinances" not in item["href"] else "") for item in items}
-        return result
+        return {item.text.lower(): item["href"] + ("/codes/code_of_ordinances" if "/codes/code_of_ordinances" not in item["href"] else "") for item in items}
     
-    def scrape_codes(self, depth=0):
+    def scrape_codes(self, depth: int=0) -> dict[str: str]:
         """
         Scrapes codes from municipality page with depth
 
@@ -182,10 +155,10 @@ class MuniCodeCrawler:
         :param depth: depth of item. (title: 0, chapter: 1, article/section: 2)
         :return: dictionary in the format {[code_name]: [link to code]}
         """
-        if depth: # because municode is stupid, it works like this: (title: 0, chapter: 2, article/section: 3), therefore, we need to index up
+        if depth: # because municode is weird, it works like this: (title: 0, chapter: 2, article/section: 3), therefore, we need to index up when depth isn't 0 so we start at depth 0.
             depth += 1
         self.wait_visibility(CODE_CSS)
-        result = {}
+        result: dict[str: str] = {}
         codes = self.soup.find_all("li", {"depth": depth})
         for code in codes:
             code = code.select_one("a[class=toc-item-heading]")
@@ -197,22 +170,22 @@ class MuniCodeCrawler:
     scrape states and cities are redundant but good for readability
     """
 
-    def scrape_states(self):
+    def scrape_states(self) -> dict[str: str]:
         return self.scrape_index_link()
     
-    def scrape_munis(self):
-        return self.scrape_index_link(True)
+    def scrape_munis(self) -> dict[str: str]:
+        return self.scrape_index_link()
 
-    def scrape_titles(self):
+    def scrape_titles(self) -> dict[str: str]:
         return self.scrape_codes(DEPTH["Titles"])
 
-    def scrape_chapters(self):
+    def scrape_chapters(self) -> dict[str: str]:
         return self.scrape_codes(DEPTH["Chapters"])
 
-    def scrape_articles(self):
+    def scrape_articles(self) -> dict[str: str]:
         return self.scrape_codes(DEPTH["Articles"])
 
-    def scrape_text(self):
+    def scrape_text(self) -> str:
         """
         Scrapes text from code on page
 
@@ -232,7 +205,8 @@ class MuniCodeCrawler:
         def bold_text_selector(tag):
             return tag.name == "b" or (tag.name == "span" and tag.has_attr("class") and tag.get("class")[0] == "bold")
 
-        result = ""
+        result: str = ""
+
         text_block = self.soup.select_one("ul.chunks.list-unstyled.small-padding") # contains the text
         bolds = text_block.find_all(bold_text_selector)
         for bold in bolds:
@@ -243,7 +217,6 @@ class MuniCodeCrawler:
         subs = text_block.find_all("sub")
         for sub in subs:
             sub.replace_with(f"<sub>{stripped_splitter(sub.text)}</sub>")
-        previous_line_incr = 0
         # using text_selector to retain order
         text = text_block.find_all(text_selector)
         for line in text:
@@ -317,23 +290,19 @@ class MuniCodeCrawler:
                     indent = int(line_class[-1]) + 1
                     result += '\t' * indent + ' ' + line.text.strip() + ' '
                 elif not "refmanual" in line_class:
-                    #if not "content" in line_class and not "p0" in line_class and not "historynote" in line_class: 
-                        #print(line_class)
-                        #print(line.text)
                     result += stripped_splitter(line.text) + "\n\n"
         with open("test.md", "w", encoding="utf-8") as f: # for testing purposes
             f.write(result)
         return result
-    url = property(get_url, set_url)
 
-def export_munis():
+def export_munis() -> None:
     """
     Exports all available municipalities in municode into a json file
 
     format: {[state]: {link: [url], municipalities: {[muni name]: [url]}}}
     """
     muni_scraper = MuniCodeCrawler()
-    result = {}
+    result: dict[str: dict[str: str|dict[str: str]]] = {}
     for state, state_url in muni_scraper.scrape_states().items():
         result[state] = {
             "link": state_url,
