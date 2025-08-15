@@ -199,6 +199,15 @@ def answer(client: genai.Client, query: str, muni_name: str, muni_url: str, cont
         model=inst.THINKING_MODEL
     )
 
+def structure(client: genai.Client, response: str) -> dict:
+    log("## Structuring answer\n\n")
+    return llm_query(
+        client=client,
+        contents=response,
+        config=inst.STRUCTURER_CONFIG,
+        model=inst.THINKING_MODEL
+    )
+
 def search_term_generator(client: genai.Client, query: str) -> list[str]:
     """
     Gets a list of relevant search terms based on a query
@@ -219,31 +228,35 @@ def search_term_generator(client: genai.Client, query: str) -> list[str]:
     search_terms: list[str] = [term["name"] for term in terms][:general_args.SEARCH_TERM_LIMIT]
     return search_terms
 
-def search_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, muni_name: str, query: str, free_client: genai.Client|None=None, search_terms: list[str]|None=None):
+def search_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, muni_name: str, query: str, free_client: genai.Client|None=None, search_terms: list[str]|None=None, visited: set[str]|None=None):
     if not free_client:
         print("FREE CLIENT NOT FOUND. USING PAID CLIENT")
         free_client = client
-    if not search_terms:
-        search_terms = search_term_generator(client, query)
-    else:
-        search_terms[:general_args.SEARCH_TERM_LIMIT]
+    search_terms = (search_terms or search_term_generator(client, query))[:general_args.SEARCH_TERM_LIMIT]
+    visited = visited or set()
     for term in search_terms:
         log(f"""## Searching "{term}"...\n\n""")
         scraper.search(term)
         search_results = scraper.scrape_search()
         section_names = run_sorter(client=client, names=search_results.keys(), query=query)
         for section in section_names:
-            # its possible to visit the same page twice PLZ FIX: (CL)
             muni_url = search_results[section.name].href
             log(f"""## Navigating to [{section.name}]({muni_url})\n\n""")
             scraper.go(muni_url)
-            context = scraper.scrape_text()
-            answer(client=free_client, query=query, muni_name=muni_name, muni_url=muni_url, context=context)
+            title = scraper.scrape_title()
+            if not title in visited:
+                visited.add(title)
+                context = scraper.scrape_text()
+                response = get_latest_response(answer(client=free_client, query=query, muni_name=muni_name, muni_url=muni_url, context=context))
+                if not "(NONE)" in response.response:
+                    return structure(free_client, response.response)
+            else:
+                log(f"""## Already visited, going back...\n\n""")
         
 
     
 
-def traversal_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, muni_name: str, query: str, free_client: genai.Client|None=None):
+def traversal_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, muni_name: str, query: str, free_client: genai.Client|None=None, visite: set[str]|None=None):
     """
     TODO: title section name sorting w/ sorter, then scrape and query for answer (CL)
     """

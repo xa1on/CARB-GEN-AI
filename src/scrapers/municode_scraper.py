@@ -122,6 +122,12 @@ class MuniCodeCrawler:
         self.wait_visibility(BODY_CSS)
         return len(self.soup.select("ul.codes-toc-list.list-unstyled")) > 0
     
+    def scrape_title(self) -> str:
+        self.wait_visibility(BODY_CSS)
+        self.wait_visibility(TEXT_CSS)
+        title = self.soup.select_one("title")
+        return title.text.strip()
+
     def scrape_search(self) -> dict[str: SearchResult]:
         """
         Scrapes search results from search page
