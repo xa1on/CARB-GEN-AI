@@ -6,7 +6,6 @@ from selenium import webdriver
 CSV_FILE = "src/data/2025 ARB Policy Map Ordinance Table - Master.csv"
 LINK_COLUMN = "Source"
 LOG_FILE = "src/result/log.txt"
-TIMEOUT = 30
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0",
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
@@ -54,13 +53,13 @@ def main():
             else:
                 links = row[link_index].strip()
                 if links:
-                    if links[:4] != "http":
-                        log(f"""{row_index + 1} is likely missing "https://" or is a malformed link.""")
-                    elif ' ' in links:
+                    if ' ' in links:
                         if "http" in links[4:]:
                             log(f"""{row_index + 1} likely contains multiple links.""")
                         else:
-                            log(f"""{row_index + 1} is malformed. It contains a space within the url.""")
+                            log(f"""{row_index + 1} is malformed. It contains a space.""")
+                    elif links[:4] != "http":
+                        log(f"""{row_index + 1} is likely missing "https://" or is a malformed link.""")
                     else:
                         req = urllib.request.Request(links)
                         for header_type, value in HEADERS.items():

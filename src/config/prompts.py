@@ -20,4 +20,4 @@ GROUNDER_QUERY_TEMPLATE = """Is this answer accurate for the query "{query}" in 
 Response:
 """
 
-SEARCHER_QUERY_TEMPLATE = """Question: {query}, List of search terms:"""
+SEARCHER_QUERY_TEMPLATE = """Question: {query}, List of {n} search terms:"""

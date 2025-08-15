@@ -56,6 +56,11 @@ def log(text: str) -> None:
         f.write(text)
 
 def clear_log() -> None:
+    """
+    Clears log.md file
+
+    :return:
+    """
     open(general_args.LOG_PATH, "w", encoding="utf-8").close()
 
 def get_latest_response(contents: list[types.Content]) -> ResponseItem:
@@ -90,7 +95,7 @@ def llm_query(client: genai.Client, contents: str|list[types.Content], config: t
         thinking: str = ""
         response: str = ""
 
-        # incremental response
+        # incremental response 
         for chunk in client.models.generate_content_stream(
             model=model,
             contents=contents,
@@ -158,7 +163,7 @@ def run_sorter(client: genai.Client, names: list[str], query: str) -> list[Relev
         client=client,
         contents=prompt,
         config=inst.SORTER_CONFIG,
-        model=general_args.FAST_MODEL
+        model=inst.FAST_MODEL
     )
 
     response_json: list[dict[str: str]] = json.loads(response[-1].parts[0].text)
@@ -167,7 +172,7 @@ def run_sorter(client: genai.Client, names: list[str], query: str) -> list[Relev
     response_json.sort(key=lambda x: x['relevance_rating'], reverse=True) # sorts the list based on relevance_rating
     for index, option in enumerate(response_json):
         if option["relevance_rating"] < general_args.RELEVANCE_THRESHOLD: # filter based on relevance threshold
-            ################### REDUNDANT CODE.
+            ################### REDUNDANT CODE. KEPT IF GROUNDING IS REQUIRED AGAIN
             response_json = response_json[:index]
             if response_json:
                 log("### Filtered Response:\n\n")
@@ -189,17 +194,66 @@ def answer(client: genai.Client, query: str, municipality: str, municipality_url
         client=client,
         contents=prompt,
         config=inst.THINKER_CONFIG,
-        model=general_args.THINKING_MODEL
+        model=inst.THINKING_MODEL
     )
 
-def chatbot_query(client: genai.Client, scraper: municode.MuniCodeCrawler, muni_name: str, query: str, free_client: genai.Client|None=None, search_terms: list[str]|None=None):
+def search_term_generator(client: genai.Client, query: str) -> list[str]:
+    """
+    Gets a list of relevant search terms based on a query
+
+    :param client: llm client
+    :param query: string query
+    :return: list of available search terms
+    """
+    terms = json.loads(
+        get_latest_response(llm_query(
+            client=client, 
+            contents=prompts.SEARCHER_QUERY_TEMPLATE.format(query=query, n=general_args.SEARCH_TERM_LIMIT), 
+            config=inst.SEARCHER_CONFIG, 
+            model=inst.FAST_MODEL
+        )).response
+    )
+    terms.sort(key=lambda x: x['relevance_rating'], reverse=True)
+    search_terms: list[str] = [term["name"] for term in terms][:general_args.SEARCH_TERM_LIMIT]
+    return search_terms
+
+def search_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, muni_name: str, query: str, free_client: genai.Client|None=None, search_terms: list[str]|None=None):
+    if not free_client:
+        print("FREE CLIENT NOT FOUND. USING PAID CLIENT")
+        free_client = client
+    if not search_terms:
+        search_terms = search_term_generator(client, query)
+    else:
+        search_terms[:general_args.SEARCH_TERM_LIMIT]
+    for term in search_terms:
+        scraper.search(term)
+        search_results = scraper.scrape_search()
+    
+
+def traversal_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, muni_name: str, query: str, free_client: genai.Client|None=None):
+    """
+    TODO: title section name sorting w/ sorter, then scrape and query for answer (CL)
+    """
+    if not free_client:
+        print("FREE CLIENT NOT FOUND. USING PAID CLIENT")
+        free_client = client
+
+def chatbot_query(client: genai.Client, scraper: municode.MuniCodeCrawler, state_name: str, muni_name: str, query: str, free_client: genai.Client|None=None, search_terms: list[str]|None=None):
     munis = {}
     with open(general_args.MUNICODE_MUNIS, 'r') as file:
         munis = json.load(file)
+    scraper.go(munis[state_name]["municipalities"][muni_name])
+    search_answer = search_answerer(client, scraper, muni_name, query, free_client, search_terms)
+    if search_answer:
+        return search_answer
+    traversal_answer = traversal_answerer(client, scraper, muni_name, query, free_client)
+    if traversal_answer:
+        return traversal_answer
+    return None
     
 
 def main():
-    #municode_nav = municode.MuniCodeCrawler() # open crawler
+    municode_nav = municode.MuniCodeCrawler() # open crawler
     clear_log()
     free_client = genai.Client(api_key=GEMINI_FREE_API_KEY)
     paid_client = genai.Client(api_key=GEMINI_PAID_API_KEY)
@@ -213,7 +267,7 @@ def main():
     muni = muni or input("Municipality: ").lower()
     query = query or input("Question: ")
 
-    
+    chatbot_query(client=paid_client, scraper=municode_nav, state_name=state, muni_name=muni, query=query, free_client=free_client)
     
 
     

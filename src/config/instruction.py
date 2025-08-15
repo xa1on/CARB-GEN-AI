@@ -313,3 +313,8 @@ SEARCHER_CONFIG = types.GenerateContentConfig(
     temperature=0.05,
     topP=0.15
 )
+
+
+THINKING_MODEL = "gemini-2.5-flash",
+
+FAST_MODEL = "gemini-2.0-flash-lite"
