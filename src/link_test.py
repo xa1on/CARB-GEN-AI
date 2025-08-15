@@ -17,22 +17,30 @@ def log(text):
     with open(LOG_FILE, 'a') as log:
         log.write(text + '\n')
 
+
+def get_status_code(driver, url):
+    """
+    From stack overflow
+
+    https://stackoverflow.com/a/69758112
+    """
+    driver.get(url)
+    for entry in driver.get_log('performance'):
+        for k, v in entry.items():
+            if k == 'message' and 'status' in v:
+                msg = json.loads(v)['message']['params']
+                for mk, mv in msg.items():
+                    if mk == 'response':
+                        response_url = mv['url']
+                        response_status = mv['status']
+                        if response_url == url:
+                            return response_status
+
+
 def main():
     options = webdriver.ChromeOptions()
-    options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
+    options.set_capability('goog:loggingPrefs', {'performance': 'ALL'}) # required to get response status through selenium
     driver = webdriver.Chrome(options=options)
-    def get_status_code(url):
-        driver.get(url)
-        for entry in driver.get_log('performance'):
-            for k, v in entry.items():
-                if k == 'message' and 'status' in v:
-                    msg = json.loads(v)['message']['params']
-                    for mk, mv in msg.items():
-                        if mk == 'response':
-                            response_url = mv['url']
-                            response_status = mv['status']
-                            if response_url == url:
-                                return response_status
     open(LOG_FILE, 'w').close() # clear log
     with open(CSV_FILE, 'r', encoding="utf8") as file:
         reader = csv.reader(file)
@@ -49,7 +57,7 @@ def main():
                     if links[:4] != "http":
                         log(f"""{row_index + 1} is likely missing "https://" or is a malformed link.""")
                     elif ' ' in links:
-                        if "www." in links[4:]:
+                        if "http" in links[4:]:
                             log(f"""{row_index + 1} likely contains multiple links.""")
                         else:
                             log(f"""{row_index + 1} is malformed. It contains a space within the url.""")
@@ -61,12 +69,12 @@ def main():
                             status_code = urllib.request.urlopen(req).getcode()
                             if status_code != 200:
                                 log(f"""{row_index + 1} is invalid/down :{status_code}.""")
-                        except Exception as e:
+                        except:
                             try:
-                                status_code = get_status_code(links)
+                                status_code = get_status_code(driver, links)
                                 if status_code != 200 and status_code != "200":
                                     log(f"""{row_index + 1} is invalid/down ::{status_code}.""")
-                            except Exception as e:
+                            except:
                                 log(f"""{row_index + 1} is invalid/down :::.""")
                                 
                 
