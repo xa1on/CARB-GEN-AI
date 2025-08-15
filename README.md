@@ -18,5 +18,10 @@
 ## How to use
 
 - ```python src/chatbot.py```
-- go into ```main()``` and edit state, muni(municipality), and query to generate custom responses
+  - go into ```main()``` and edit state, muni(municipality), and query to generate custom responses
     - generated log.md will show gemini thought process, responses, etc.
+
+- ```python src/batch_test.py```
+  - setup `queries.json` to map policies to prompts
+  - setup a reference csv as an answer guide
+  - run the file and it'll generate a result csv
