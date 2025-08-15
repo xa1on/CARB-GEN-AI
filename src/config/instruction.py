@@ -266,46 +266,50 @@ SORTER_SCHEMA = {
 }
 
 
-# general config
-CONFIGS = {
-    "thinker": types.GenerateContentConfig(
-        system_instruction=THINKING_SYS_INST,
-        thinking_config=types.ThinkingConfig(
-            include_thoughts=True,
-            thinking_budget=-1
-        ),
-        temperature=0.05,
-        topP=0.15
+
+# CONTENT CONFIGS
+
+THINKER_CONFIG = types.GenerateContentConfig(
+    system_instruction=THINKING_SYS_INST,
+    thinking_config=types.ThinkingConfig(
+        include_thoughts=True,
+        thinking_budget=-1
     ),
-    "grounder": types.GenerateContentConfig(
-        system_instruction=GROUNDER_SYS_INST,
-        thinking_config=types.ThinkingConfig(
-            include_thoughts=True,
-            thinking_budget=-1
-        ),
-        tools=[GROUNDING],
-        temperature=0.05,
-        topP=0.15
+    temperature=0.05,
+    topP=0.15
+)
+
+GROUNDER_CONFIG = types.GenerateContentConfig(
+    system_instruction=GROUNDER_SYS_INST,
+    thinking_config=types.ThinkingConfig(
+        include_thoughts=True,
+        thinking_budget=-1
     ),
-    "structurer": types.GenerateContentConfig(
-        system_instruction=STRUCTURER_SYS_INST,
-        response_mime_type='application/json',
-        response_schema=RESPONSE_SCHEMA,
-        temperature=0.05,
-        topP=0.15
-    ),
-    "sorter": types.GenerateContentConfig(
-        system_instruction=SORTER_SYS_INST,
-        response_mime_type='application/json',
-        response_schema=SORTER_SCHEMA,
-        temperature=0.05,
-        topP=0.15
-    ),
-    "searcher": types.GenerateContentConfig(
-        system_instruction=SEARCHER_SYS_INST,
-        response_mime_type='application/json',
-        response_schema=SORTER_SCHEMA,
-        temperature=0.05,
-        topP=0.15
-    )
-}
+    tools=[GROUNDING],
+    temperature=0.05,
+    topP=0.15
+)
+
+STRUCTURER_CONFIG = types.GenerateContentConfig(
+    system_instruction=STRUCTURER_SYS_INST,
+    response_mime_type='application/json',
+    response_schema=RESPONSE_SCHEMA,
+    temperature=0.05,
+    topP=0.15
+)
+
+SORTER_CONFIG = types.GenerateContentConfig(
+    system_instruction=SORTER_SYS_INST,
+    response_mime_type='application/json',
+    response_schema=SORTER_SCHEMA,
+    temperature=0.05,
+    topP=0.15
+)
+
+SEARCHER_CONFIG = types.GenerateContentConfig(
+    system_instruction=SEARCHER_SYS_INST,
+    response_mime_type='application/json',
+    response_schema=SORTER_SCHEMA,
+    temperature=0.05,
+    topP=0.15
+)

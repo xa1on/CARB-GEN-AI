@@ -3,5 +3,7 @@
 *test.md
 *.env
 __pycache__
+logs
 *log.md
 archive
+src/data

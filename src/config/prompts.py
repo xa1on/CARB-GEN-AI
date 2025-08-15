@@ -1,7 +1,9 @@
 SORTER_QUERY_TEMPLATE = """Query: "{query}".
-Here is the list of title/chapters/articles/sections:
+Here is a comma seperated list of title/chapters/articles/sections:
 
 {name_list}"""
+
+
 
 RESPONSE_QUERY_TEMPLATE = """Answer the following question on the city/municipality of {muni} from the documents provided below for the muni/city of {muni}:
 

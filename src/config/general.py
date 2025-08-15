@@ -6,11 +6,9 @@ MUNICODE_MUNIS = "src/config/municode_munis.json"
 LOG_PATH = "log.md"
 
 
-# model options
-MODELS = {
-    "thinker": "gemini-2.5-flash",
-    "fast": "gemini-2.0-flash-lite"
-}
+THINKING_MODEL = "gemini-2.5-flash",
+
+FAST_MODEL = "gemini-2.0-flash-lite"
 
 RELEVANCE_THRESHOLD = 4 # completely arbitrary
 
