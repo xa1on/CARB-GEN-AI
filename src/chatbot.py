@@ -121,7 +121,9 @@ def llm_query(client: genai.Client, contents: str|list[types.Content], config: t
         parts = []
 
         if thinking:
-            parts.append(types.Part.from_text(thought=True, text=thinking))
+            thinking_part = types.Part.from_text(text=thinking)
+            thinking_part.thought = True
+            parts.append(thinking_part)
         parts.append(types.Part.from_text(text=response))
 
         result.append(
@@ -182,11 +184,11 @@ def run_sorter(client: genai.Client, names: list[str], query: str) -> list[Relev
         result.append(RelevanceItem(name=option["name"], relevance_rating=option["relevance_rating"]))
     return result
 
-def answer(client: genai.Client, query: str, municipality: str, municipality_url: str, context: str) -> list[types.Content]:
+def answer(client: genai.Client, query: str, muni_name: str, muni_url: str, context: str) -> list[types.Content]:
     log("## ANSWERING\n\n")
-    prompt: str = inst.RESPONSE_QUERY_TEMPLATE.format(
-        muni=municipality,
-        muni_code_url=municipality_url,
+    prompt: str = prompts.RESPONSE_QUERY_TEMPLATE.format(
+        muni_name=muni_name,
+        muni_url=muni_url,
         text=context,
         query=query
     )
@@ -226,8 +228,19 @@ def search_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, mun
     else:
         search_terms[:general_args.SEARCH_TERM_LIMIT]
     for term in search_terms:
+        log(f"""## Searching "{term}"...\n\n""")
         scraper.search(term)
         search_results = scraper.scrape_search()
+        section_names = run_sorter(client=client, names=search_results.keys(), query=query)
+        for section in section_names:
+            # its possible to visit the same page twice PLZ FIX: (CL)
+            muni_url = search_results[section.name].href
+            log(f"""## Navigating to [{section.name}]({muni_url})\n\n""")
+            scraper.go(muni_url)
+            context = scraper.scrape_text()
+            answer(client=free_client, query=query, muni_name=muni_name, muni_url=muni_url, context=context)
+        
+
     
 
 def traversal_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, muni_name: str, query: str, free_client: genai.Client|None=None):

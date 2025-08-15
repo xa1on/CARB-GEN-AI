@@ -5,9 +5,9 @@ Here is a comma seperated list of title/chapters/articles/sections:
 
 
 
-RESPONSE_QUERY_TEMPLATE = """Answer the following question on the city/municipality of {muni} from the documents provided below for the muni/city of {muni}:
+RESPONSE_QUERY_TEMPLATE = """Answer the following question on the city/municipality of {muni_name} from the documents provided below for the muni/city of {muni_name}:
 
-Below is the document in markdown format from the following link {muni_code_url}:
+Below is the document in markdown format from the following link {muni_url}:
 
 {text}
 
@@ -15,7 +15,7 @@ Below is the document in markdown format from the following link {muni_code_url}
 
 Question: {query}\n Response: """
 
-GROUNDER_QUERY_TEMPLATE = """Is this answer accurate for the query "{query}" in regard to the city or municipality of {muni}?
+GROUNDER_QUERY_TEMPLATE = """Is this answer accurate for the query "{query}" in regard to the city or municipality of {muni_name}?
 
 Response:
 """

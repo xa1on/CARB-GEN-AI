@@ -90,6 +90,7 @@ SORTER_SYS_INST = [
     """You are a helpful municipality policy analyst bot.""",
     """You will be asked to sort all the names of titles/chapters/articles/sections in terms of most relevant to least relevant from a list of names based on a question.""",
     """Don't include definition sections.""",
+    """Ignore any section/title/chapter/article titled "definition\"""",
     """Add a relevance rating for each name. (decimal number from 0-10 with 0 being the least relevant)""",
     """Avoid anything that is repealed, obsolete or are sections similar to "summary history table", "dispostion table" or "city municipal code". Anything not relevant enough should be ignored (Don't include anything with low relevance).""",
     """The name should be the chapters/articles/sections names with no extra spaces, punctuation, only the exact names of the chapters/articles/sections in a list ordered from best to worst (most relevant to least relevant) with no modification.""",
@@ -181,7 +182,8 @@ SEARCHER_SYS_INST = [
     """You will be given queries, for which you will generate a short list of website-wide relevant search terms for to better find the answer for the question.""",
     """Add a relevance rating for each name. (decimal number from 0-10 with 0 being the least relevant)""",
     """Sort the search terms from most relevant, to least relevant""",
-    """Ensure your reponses are short (3 words or less, preferrably less) and contain search keywords."""
+    """Ensure your reponses are short (3 words or less, preferrably 1 word or 2 words) and contain search keywords.""",
+    """Avoid words like "policy" or "rule".""",
 ]
 
 
@@ -315,6 +317,6 @@ SEARCHER_CONFIG = types.GenerateContentConfig(
 )
 
 
-THINKING_MODEL = "gemini-2.5-flash",
+THINKING_MODEL = "gemini-2.5-flash"
 
 FAST_MODEL = "gemini-2.0-flash-lite"

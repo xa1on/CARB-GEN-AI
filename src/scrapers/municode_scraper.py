@@ -29,6 +29,7 @@ CODE_CSS = "a[class=toc-item-heading]"
 BODY_CSS = "#codesContent"
 TEXT_CSS = "ul.chunks.list-unstyled.small-padding"
 SEARCH_CSS = "#headerSearch"
+SEARCH_IN_SEARCH_CSS = "#searchBox"
 SEARCH_RESULT_CSS = "div[class=search-result-body]"
 
 DEPTH: dict[str: int] = {
@@ -100,7 +101,12 @@ class MuniCodeCrawler:
 
         :param search_term: search term to use for search
         """
-        search_bar = self.browser.find_element(By.CSS_SELECTOR, SEARCH_CSS)
+        search_bar = None
+        try:
+            search_bar = self.browser.find_element(By.CSS_SELECTOR, SEARCH_CSS)
+        except:
+            search_bar = self.browser.find_element(By.CSS_SELECTOR, SEARCH_IN_SEARCH_CSS)
+        search_bar.clear()
         search_bar.send_keys(search_term, Keys.RETURN)
         self.wait.until(EC.invisibility_of_element_located((By.CSS_SELECTOR, LOADING_CSS_SELECTOR)))
         self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
