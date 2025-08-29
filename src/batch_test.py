@@ -12,7 +12,7 @@ load_dotenv()
 GEMINI_PAID_API_KEY = os.getenv('GEMINI_PAID') # google cloud api key
 GEMINI_FREE_API_KEY = os.getenv('GEMINI_FREE')
 
-REFERENCE = "src/data/Santa Clara.csv"
+REFERENCE = "src/data/8 cities 3 policies.csv"
 QUERIES = "src/data/QUERIES.json"
 RESULT = "src/data/result.csv"
 LOGS = "logs/"
@@ -34,7 +34,6 @@ def batch(client, muni_nav, reference, queries, result, logs, free_client=None):
                 field_names = line
                 continue
             answers.append(list(line))
-
     with open(reference, mode='r') as csv_file:
         csv_reader = csv.reader(csv_file)
         for line in csv_reader:
@@ -58,8 +57,7 @@ def batch(client, muni_nav, reference, queries, result, logs, free_client=None):
             if not os.path.exists(f"{logs}{city}"):
                 os.makedirs(f"{logs}{city}")
             filename = f"""{city}/{policy_type.replace('/', ' ')}_log.md"""
-            _, _, structured_response = init(muni_nav, "california", city.lower(), query_ref[policy_type], client, free_client=free_client)
-            print(structured_response)
+            structured_response = chatbot_query(client=client, scraper=muni_nav, state_name="california", muni_name=city.lower(), query=query_ref[policy_type], free_client=free_client)
             answer = [city, policy_type, 'Y' if structured_response and (structured_response["binary_response"]) else 'N']
             answers.append(answer)
             with open(result, mode='a') as csv_result_file: # incremental updates

@@ -31,6 +31,7 @@ TEXT_CSS = "ul.chunks.list-unstyled.small-padding"
 SEARCH_CSS = "#headerSearch"
 SEARCH_IN_SEARCH_CSS = "#searchBox"
 SEARCH_RESULT_CSS = "div[class=search-result-body]"
+SEARCH_RESULT_COUNT_CSS = "h3[class=text-light]"
 
 DEPTH: dict[str: int] = {
     "Titles": 0,
@@ -135,7 +136,7 @@ class MuniCodeCrawler:
         :param self:
         :return: list of SearchResults
         """
-        self.wait_visibility(SEARCH_RESULT_CSS)
+        self.wait_visibility(SEARCH_RESULT_COUNT_CSS)
         search_results = self.soup.select(SEARCH_RESULT_CSS)
         result: dict[str: SearchResult] = {}
         for search_result in search_results:

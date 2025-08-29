@@ -3,7 +3,7 @@ import urllib.request
 import json
 from selenium import webdriver
 
-CSV_FILE = "src/data/2025 ARB Policy Map Ordinance Table - Master.csv"
+CSV_FILE = "src/data/ord tables/2025 ARB Policy Map Ordinance Table - Los Angeles.csv"
 LINK_COLUMN = "Source"
 LOG_FILE = "src/result/log.txt"
 HEADERS = {
@@ -44,22 +44,27 @@ def main():
     with open(CSV_FILE, 'r', encoding="utf8") as file:
         reader = csv.reader(file)
         link_index = -1
+        row_count = sum(1 for _ in reader)
         for row_index, row in enumerate(reader):
+            print(f"{row_index + 1}/{row_count}")
             if not row_index:
                 for item_index, item in enumerate(row):
                     if item == LINK_COLUMN:
                         link_index = item_index
                         break
             else:
+                city = row[0].strip()
+                county = row[1].strip()
+                policy_type = row[2].strip()
                 links = row[link_index].strip()
                 if links:
-                    if ' ' in links:
+                    if ' ' in links or '\n' in links:
                         if "http" in links[4:]:
-                            log(f"""{row_index + 1} likely contains multiple links.""")
+                            log(f"""{row_index + 1}[{city}|{county}|{policy_type}] likely contains multiple links.""")
                         else:
-                            log(f"""{row_index + 1} is malformed. It contains a space.""")
+                            log(f"""{row_index + 1}[{city}|{county}|{policy_type}] is malformed. It contains a space/newline character.""")
                     elif links[:4] != "http":
-                        log(f"""{row_index + 1} is likely missing "https://" or is a malformed link.""")
+                        log(f"""{row_index + 1}[{city}|{county}|{policy_type}] is likely missing "https://" or is a malformed link.""")
                     else:
                         req = urllib.request.Request(links)
                         for header_type, value in HEADERS.items():
@@ -67,14 +72,14 @@ def main():
                         try:
                             status_code = urllib.request.urlopen(req).getcode()
                             if status_code != 200:
-                                log(f"""{row_index + 1} is invalid/down :{status_code}.""")
+                                log(f"""{row_index + 1}[{city}|{county}|{policy_type}] is invalid/down :{status_code}.""")
                         except:
                             try:
                                 status_code = get_status_code(driver, links)
                                 if status_code != 200 and status_code != "200":
-                                    log(f"""{row_index + 1} is invalid/down ::{status_code}.""")
+                                    log(f"""{row_index + 1}[{city}|{county}|{policy_type}] is invalid/down ::{status_code}.""")
                             except:
-                                log(f"""{row_index + 1} is invalid/down :::.""")
+                                log(f"""{row_index + 1}[{city}|{county}|{policy_type}] is invalid/down :::.""")
                                 
                 
 

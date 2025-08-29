@@ -183,7 +183,7 @@ SEARCHER_SYS_INST = [
     """Add a relevance rating for each name. (decimal number from 0-10 with 0 being the least relevant)""",
     """Sort the search terms from most relevant, to least relevant""",
     """Ensure your reponses are short (3 words or less, preferrably 1 word or 2 words) and contain search keywords.""",
-    """Avoid words like "policy" or "rule".""",
+    """Avoid words like "policy" or "rule". DO NOT USE ACRONYMS!!!""",
 ]
 
 

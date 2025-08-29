@@ -201,12 +201,12 @@ def answer(client: genai.Client, query: str, muni_name: str, muni_url: str, cont
 
 def structure(client: genai.Client, response: str) -> dict:
     log("## Structuring answer\n\n")
-    return llm_query(
+    return json.loads(get_latest_response(llm_query(
         client=client,
         contents=response,
         config=inst.STRUCTURER_CONFIG,
         model=inst.THINKING_MODEL
-    )
+    )).response)
 
 def search_term_generator(client: genai.Client, query: str) -> list[str]:
     """
@@ -238,20 +238,24 @@ def search_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, mun
         log(f"""## Searching "{term}"...\n\n""")
         scraper.search(term)
         search_results = scraper.scrape_search()
-        section_names = run_sorter(client=client, names=search_results.keys(), query=query)
-        for section in section_names:
-            muni_url = search_results[section.name].href
-            log(f"""## Navigating to [{section.name}]({muni_url})\n\n""")
-            scraper.go(muni_url)
-            title = scraper.scrape_title()
-            if not title in visited:
-                visited.add(title)
-                context = scraper.scrape_text()
-                response = get_latest_response(answer(client=free_client, query=query, muni_name=muni_name, muni_url=muni_url, context=context))
-                if not "(NONE)" in response.response:
-                    return structure(free_client, response.response)
+        if search_results:
+            if len(search_results) == 1: # no need to run sorter if there is only 1 search result
+                section_names = [RelevanceItem(list(search_results.keys())[0], relevance_rating=10)] # jank
             else:
-                log(f"""## Already visited, going back...\n\n""")
+                section_names = run_sorter(client=client, names=search_results.keys(), query=query)
+            for section in section_names:
+                muni_url = search_results[section.name].href
+                log(f"""## Navigating to [{section.name}]({muni_url})\n\n""")
+                scraper.go(muni_url)
+                title = scraper.scrape_title()
+                if not title in visited:
+                    visited.add(title)
+                    context = scraper.scrape_text()
+                    response = get_latest_response(answer(client=free_client, query=query, muni_name=muni_name, muni_url=muni_url, context=context))
+                    if not "(NONE)" in response.response:
+                        return (structure(free_client, response.response))
+                else:
+                    log(f"""## Already visited, going back...\n\n""")
         
 
     

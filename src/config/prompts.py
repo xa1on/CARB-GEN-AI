@@ -1,7 +1,7 @@
 SORTER_QUERY_TEMPLATE = """Query: "{query}".
 Here is a comma seperated list of title/chapters/articles/sections:
 
-{name_list}"""
+[{name_list}]"""
 
 
 
