@@ -1,4 +1,4 @@
-"""
+""" 
 AMLEGAL SCRAPER
 
 Scrapes codelibrary.amlegal.com/regions/ca for municipality codes
