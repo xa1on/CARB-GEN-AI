@@ -207,6 +207,9 @@ class AmlegalCrawler:
         """
         pass
 
+def export_munis() -> None:
+    pass
+
 def test_text_scrape():
     pass
 
