@@ -5,7 +5,7 @@ Scrapes codelibrary.amlegal.com/regions/ca for municipality codes
 
 Notes: something really similar should be done with codelibrary.amlegal.com and generalcode.com/library
 
-Authors: Chenghao Li, Zack Yu
+Authors: Chenghao Li, Zack Yu, Bo Wang
 Org: University of Toronto - School of Cities
 """
 
