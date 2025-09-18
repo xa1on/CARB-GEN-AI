@@ -78,6 +78,11 @@ class MuniCodeCrawler:
 
         self.browser.set_window_size(1024, 1024)
         self.go(starting_url)
+
+    def wait_visibility(self, CSS):
+        self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, CSS)))
+        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
+        return self
     
     def go(self, url):
         """
@@ -87,13 +92,7 @@ class MuniCodeCrawler:
         :return:
         """
         self.browser.get(url)
-        self.wait.until(EC.invisibility_of_element_located((By.CSS_SELECTOR, LOADING_CSS_SELECTOR)))
-        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
-        return self
-    
-    def wait_visibility(self, CSS):
-        self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, CSS)))
-        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
+        self.wait_visibility(LOADING_CSS_SELECTOR)
         return self
 
     def search(self, search_term):
@@ -304,8 +303,8 @@ class MuniCodeCrawler:
                     result += '\t' * indent + ' ' + line.text.strip() + ' '
                 elif not "refmanual" in line_class:
                     result += stripped_splitter(line.text) + "\n\n"
-        with open("test.md", "w", encoding="utf-8") as f: # for testing purposes
-            f.write(result)
+        # with open("test.md", "w", encoding="utf-8") as f: # for testing purposes
+        #     f.write(result)
         return result
 
 def export_munis() -> None:
