@@ -89,7 +89,8 @@ class AmlegalCrawler:
         :return:
         """
         self.browser.get(url)
-        self.wait_visibility(LOADING_CSS_SELECTOR)
+        self.wait.until(EC.invisibility_of_element_located((By.CSS_SELECTOR, LOADING_CSS_SELECTOR)))
+        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
         return self
     
 
@@ -173,7 +174,6 @@ class AmlegalCrawler:
                 if re.search(pattern,code.text):
                     new_codes.append(code)
             codes = list(new_codes)
-        print(codes)
         for code in codes:
             code_text = code.text.strip()
             result[code_text] = "https://codelibrary.amlegal.com" + code["href"]
@@ -219,12 +219,13 @@ def test_search():
 
 def main():
     aml_scraper = AmlegalCrawler()
-    
-    # showcase state scraping! the scraper currently doesn't work since 
-
-    aml = aml_scraper.scrape_munis() # gets a dict of municipalities in the state of california
-    print(aml)
-    aml_scraper.go(aml["adelanto"]) # goes to adelanto
+    states = aml_scraper.scrape_states()
+    del states['view google map of online clients']
+    print(states)
+    aml_scraper.go(states['california'])
+    muni = aml_scraper.scrape_munis() # gets a dict of municipalities in the state of california
+    print(muni)
+    aml_scraper.go(muni["adelanto"]) # goes to adelanto
     titles = aml_scraper.scrape_titles() # grabs all the titles for adelanto
     print(titles)
     aml_scraper.go(titles["TITLE 1 GENERAL PROVISIONS"]) # scrapes the chapters in title 1
