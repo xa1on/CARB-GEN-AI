@@ -175,7 +175,7 @@ class AmlegalCrawler:
                     new_codes.append(code)
             codes = list(new_codes)
         for code in codes:
-            code_text = code.text.strip()
+            code_text = code.text.strip()+(' '+code.next_sibling.strip() if code.next_sibling else "")
             result[code_text] = "https://codelibrary.amlegal.com" + code["href"]
         return result
     
@@ -231,11 +231,11 @@ def main():
     aml_scraper.go(titles["TITLE 1 GENERAL PROVISIONS"]) # scrapes the chapters in title 1
     chapters = aml_scraper.scrape_chapters()
     print(chapters)
-    aml_scraper.go(chapters["1.01"]) # access chapter
+    aml_scraper.go(chapters["1.01 Code Adopted"]) # access chapter
     # if (muni_scraper.contains_child()): All chapters seems to have articles, thus this line is omitted
     articles = aml_scraper.scrape_articles() # scrapes the articles
     print(articles)
-    aml_scraper.go(articles["1.01.010"]) # access chapter's article
+    aml_scraper.go(articles["1.01.010 Declaration of Purpose"]) # access chapter's article
     print(aml_scraper.scrape_text()) # scrapes all text from article
 
 if __name__ == "__main__":
