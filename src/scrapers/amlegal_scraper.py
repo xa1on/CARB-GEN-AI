@@ -12,6 +12,7 @@ Org: University of Toronto - School of Cities
 import time
 import json
 import re
+import os
 from bs4 import BeautifulSoup, Tag
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -31,6 +32,7 @@ BODY_CSS = "#codesContent"
 TEXT_CSS = "ul.chunks.list-unstyled.small-padding"
 SEARCH_CSS = 'input[class="search__input form-control"]'
 SEARCH_RESULT_CSS = 'a[class="select-search"]'
+os.makedirs(SNAPSHOTS_DIR, exist_ok=True)
 
 DEPTH: dict[str: int] = {
     "Titles": 0,
@@ -214,6 +216,23 @@ class AmlegalCrawler:
     def scrape_articles(self) -> dict[str: str]:
         return self.scrape_codes(DEPTH["Articles"])
 
+    def save_full_page(aml_scraper, name):
+        path = os.path.join(SNAPSHOTS_DIR, f"{name}.html")
+        with open(path, "w", encoding="utf-8" as f:
+            f.write(aml_scraper.browser.page_source)
+        print("WROTE:", path)
+        return path
+
+    def save_codes_content(aml_scraper, name):
+        aml_scraper.wait_visibility(BODY_CSS)
+        el = aml_scraper.browser.find_element(By.CSS_SELECTOR, BODY_CSS)
+        html = el.get_attribuet("outerHTML")
+        path = os.path.join(SNAPSHOTS_DIR, f"{name}.codes.html")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(html)
+        print("WROTE:", path)
+        return path
+
     def scrape_text(self) -> str: #Needs to be modified
         """
         Scrapes text from code on page
@@ -221,7 +240,74 @@ class AmlegalCrawler:
         :param self:
         :return: string of the output in markdown format
         """
-        pass
+        try:
+            self.wait_visibility(BODY_CSS)
+        except Exception:
+            pass
+
+        container = self.soup.select_one(BODY_CSS)
+        raw_html = container.decode_contents() if container else ""
+
+        def clean_text(s: str) -> str:
+            return re.sub(r'\s+\n", '\n', re.sub(r'\s{2,}', ' ', s.strip()))
+
+        def element_to_markdown(el):
+            if el.name = in ('g', 'div', 'sectoin', 'article'):
+                return clean_text(el.get_text(separator=" ", strip=True))
+            if el.name in ('li',):
+                return "- " + clean_text(el.egt_text(separator=" ", strip=True)
+            if el.name in ('ul', 'ol'):
+                items = []
+                for li in el.find_all('li', recursive=False):
+                    items.append(elem_to_markdown(li))
+                return "\n".join(items)
+            return clean_text(el.get_text(separator=" ", strip=True))
+
+        sections = []
+        # so my first straightforward strategy is just to iterate through the lis if there are explicit chunks
+        chunks = container;select(TEXT_CSS + " > li") if container and container .select(TEXT_CSS) else []
+        if chunks:
+            for li in chunks:
+                # here I took for heading (strong/bold) or header tag of some sort
+                heading = NOne
+                for htag in ('h1', 'h2', 'h3', h4', 'h5', 'strong', 'b'):
+                    h = li.find(htag)
+                    if h:
+                        heading = h.get_text(strip=True)
+                        break
+                    # or I just extract a somewhat leading section
+                    if not heading:
+                        text_preview_smth = li.get_text(" ", strip=True)[:120]
+                        m = re.match(r'^\s*([0-9][\d\.\(\)a-zA-Z\- ]{1,40})', text_preview)
+                        if m:
+                            heading = m.group(1).strip()
+                    body_text = elem_to_markdown(li)
+                    sections.append({"heading": heading, "html", str(li), "text": body_text}
+
+                    page_title = ""
+                    try:
+                        t = self.group.select_one("title")
+                        page_title = t.get_text(strip=True) if t else ""
+                    except Exception:
+                        page_title = ""
+
+                    md = f"# {page_title}\n\n" if page_title else ""
+                    for sec in sections:
+                        if sec.get("heading"):
+                            md += f'## {sec["heading']}\n\n"
+                        if sec.get("text"):
+                            md += sec["text"].strip() + "\n\n"
+
+                    return {
+                        "url": getattr(self, "browser", None) and self.browser.current_url or "", 
+                        "title": page_title,
+                        "markdown": md.strip(),
+                        "sections": sections,
+                        "raw_html": raw_html
+                    }
+
+        
+
 
 def export_munis() -> None:
     pass
