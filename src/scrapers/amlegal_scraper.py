@@ -249,7 +249,7 @@ class AmlegalCrawler:
         raw_html = container.decode_contents() if container else ""
 
         def clean_text(s: str) -> str:
-            return re.sub(r'\s+\n", '\n', re.sub(r'\s{2,}', ' ', s.strip()))
+            return re.sub(r'\s+\n', '\n', re.sub(r'\s{2,}', ' ', s.strip()))
 
         def element_to_markdown(el):
             if el.name = in ('g', 'div', 'sectoin', 'article'):
