@@ -232,7 +232,7 @@ class AmlegalCrawler:
             f.write(html)
         print("WROTE:", path)
         return path
-
+    '''
     def scrape_text(self) -> str: #Needs to be modified
         """
         Scrapes text from code on page
@@ -306,7 +306,7 @@ class AmlegalCrawler:
                         "raw_html": raw_html
                     }
 
-        
+    ''' #I think there's a lot of unmatched quotation marks in this code
 
 
 def export_munis() -> None:
