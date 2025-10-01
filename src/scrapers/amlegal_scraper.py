@@ -32,6 +32,8 @@ BODY_CSS = "#codesContent"
 TEXT_CSS = "ul.chunks.list-unstyled.small-padding"
 SEARCH_CSS = 'input[class="search__input form-control"]'
 SEARCH_RESULT_CSS = 'a[class="select-search"]'
+SEARCH_RESULT2_CSS = 'span[class="search-badge search-badge--title badge badge-secondary"]'
+SEARCH_RESULT3_CSS = 'em[class="mark"]'
 os.makedirs(SNAPSHOTS_DIR, exist_ok=True)
 
 DEPTH: dict[str: int] = {
@@ -51,9 +53,11 @@ def stripped_splitter(text: str, separator=' ') -> str:
     return result[len(separator):]
 
 class SearchResult:
-    def __init__(self, href: str, name: str):
+    def __init__(self, href: str, name: str, chapter_name: str, related_text: str):
         self.href = href
         self.name = name
+        self.chapter_name = chapter_name
+        self.related_text = related_text
     
     def __repr__(self) -> str:
         return f"href={self.href}, name={self.name}, chapter_name={self.chapter_name}, related_text={self.related_text}"
@@ -137,11 +141,38 @@ class AmlegalCrawler:
         """
         self.wait_visibility(SEARCH_RESULT_CSS)
         search_results = self.soup.select(SEARCH_RESULT_CSS)
+        search_results2 = self.soup.select(SEARCH_RESULT2_CSS)
+        search_results3 = self.soup.select(SEARCH_RESULT3_CSS)
         result: dict[str: SearchResult] = {}
+        resholder = []
+        resholder2 = []
+        resholder3 = []
+        resholder3_pieces = []
         for res in search_results:
             name = res.text
             href = self.home_url + res["href"]
-            result[name] = SearchResult(href,name)
+            #result[name] = SearchResult(href,name)
+            resholder.append([href,name])
+        for res2 in search_results2:
+            chapter_name = res2.text
+            resholder2.append(chapter_name)
+        for res3 in search_results3:
+            text1 = res3.text
+            text2 = res3.next_sibling.strip() if res3.next_sibling else ""
+            related_text = text1 + ' ' + text2
+            resholder3_pieces.append(related_text)
+        for i in range(len(resholder3_pieces)):
+            if i%2 == 0:
+                if i!= 0:
+                    resholder3.append(piece)
+                piece = ""
+            piece += resholder3_pieces[i]+' '
+        for i in range(len(resholder)):
+            name = resholder[i][1]
+            href = resholder[i][0]
+            chapter_name = resholder2[i]
+            related_text = resholder3[i]
+            result[name] = SearchResult(href,name,chapter_name,related_text)
         return result
 
     def scrape_index_link(self) -> dict[str: str]:
@@ -216,6 +247,7 @@ class AmlegalCrawler:
     def scrape_articles(self) -> dict[str: str]:
         return self.scrape_codes(DEPTH["Articles"])
 
+    '''
     def save_full_page(aml_scraper, name):
         path = os.path.join(SNAPSHOTS_DIR, f"{name}.html")
         with open(path, "w", encoding="utf-8" as f:
@@ -232,7 +264,7 @@ class AmlegalCrawler:
             f.write(html)
         print("WROTE:", path)
         return path
-    '''
+
     def scrape_text(self) -> str: #Needs to be modified
         """
         Scrapes text from code on page
@@ -345,4 +377,4 @@ def main():
 if __name__ == "__main__":
     results = test_search("adelanto")
     for key in results:
-        print(key, results[key].href)
+        print(key+'\n'+results[key].href+'\n'+results[key].chapter_name+'\n'+results[key].related_text)
