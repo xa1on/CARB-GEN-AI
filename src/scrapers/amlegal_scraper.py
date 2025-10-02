@@ -24,6 +24,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 
 SNAPSHOTS_DIR = "snapshots"
+
 LOADING_CSS_SELECTOR = ".fa-2x"
 TIMEOUT = 120
 INDEX_CSS = 'a[class="browse-link roboto"]'
@@ -249,7 +250,7 @@ class AmlegalCrawler:
 
     def save_full_page(aml_scraper, name):
         path = os.path.join(SNAPSHOTS_DIR, f"{name}.html")
-        with open(path, "w", encoding="utf-8" as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(aml_scraper.browser.page_source)
         print("WROTE:", path)
         return path
@@ -325,7 +326,7 @@ class AmlegalCrawler:
                     md = f"# {page_title}\n\n" if page_title else ""
                     for sec in sections:
                         if sec.get("heading"):
-                            md += f"## {sec["heading']}\n\n"
+                            md += f"## {sec['heading']}\n\n"
                         if sec.get("text"):
                             md += sec["text"].strip() + "\n\n"
 
