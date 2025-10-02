@@ -313,7 +313,7 @@ class AmlegalCrawler:
                         if m:
                             heading = m.group(1).strip()
                     body_text = elem_to_markdown(li)
-                    sections.append({"heading": heading, "html", str(li), "text": body_text})
+                    sections.append({"heading": heading, "html": str(li), "text": body_text})
 
                     page_title = ""
                     try:
