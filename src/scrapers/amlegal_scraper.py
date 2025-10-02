@@ -282,11 +282,25 @@ class AmlegalCrawler:
         def clean_text(s: str) -> str:
             return re.sub(r'\s+\n', '\n', re.sub(r'\s{2,}', ' ', s.strip()))
 
+        '''added an edge case to take care of tables format in potential scraping'''
+        def table_to_markdown(table):
+            rows =[]
+            for row in table.find_all("tr"):
+                cells = [td.get_text(strip=True) for td in row.find_all(["td", "th"])]
+                rows.append("|" + " | ".join(cells) + " |")
+            if table.find("th"):
+                header_sep = "| " + " | ".join("---" for _ in table.find_all("th")) + " |"
+                rows.insert(1, header_sep)
+            return "\n".join(rows)
+
+        
         def element_to_markdown(el):
             if el.name in ('g', 'div', 'section', 'article'):
                 return clean_text(el.get_text(separator=" ", strip=True))
             if el.name in ('li',):
                 return "- " + clean_text(el.egt_text(separator=" ", strip=True))
+            if el.name == "table":
+                return table_to_markdown(el)
             if el.name in ('ul', 'ol'):
                 items = []
                 for li in el.find_all('li', recursive=False):
