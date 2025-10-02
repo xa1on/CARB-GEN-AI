@@ -247,7 +247,6 @@ class AmlegalCrawler:
     def scrape_articles(self) -> dict[str: str]:
         return self.scrape_codes(DEPTH["Articles"])
 
-    '''
     def save_full_page(aml_scraper, name):
         path = os.path.join(SNAPSHOTS_DIR, f"{name}.html")
         with open(path, "w", encoding="utf-8" as f:
@@ -338,7 +337,8 @@ class AmlegalCrawler:
             "raw_html": raw_html
         }
 
-    ''' #I think there's a lot of unmatched quotation marks in this code (you're right just fixed some obvious ones)
+    ''' (you're right just fixed some obvious ones)
+    '''
 
 
 def export_munis() -> None:
