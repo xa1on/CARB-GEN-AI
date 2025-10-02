@@ -106,7 +106,7 @@ class AmlegalCrawler:
 
     def search(self, search_term):
         """
-        Searches specified search term in municode
+        Searches specified search term in amlegal
 
         :param search_term: search term to use for search
         """
@@ -196,7 +196,7 @@ class AmlegalCrawler:
         :param depth: depth of item. (title: 0, chapter: 1, article/section: 2)
         :return: dictionary in the format {[code_name]: [link to code]}
         """
-        #if depth: # because municode is weird, it works like this: (title: 0, chapter: 2, article/section: 3), therefore, we need to index up when depth isn't 0 so we start at depth 0.
+        #if depth: # because /Amelgal/ is weird, it works like this: (title: 0, chapter: 2, article/section: 3), therefore, we need to index up when depth isn't 0 so we start at depth 0.
             #depth += 1
         self.wait_visibility(CODE_CSS)
         result: dict[str: str] = {}
@@ -284,10 +284,10 @@ class AmlegalCrawler:
             return re.sub(r'\s+\n', '\n', re.sub(r'\s{2,}', ' ', s.strip()))
 
         def element_to_markdown(el):
-            if el.name = in ('g', 'div', 'sectoin', 'article'):
+            if el.name in ('g', 'div', 'section', 'article'):
                 return clean_text(el.get_text(separator=" ", strip=True))
             if el.name in ('li',):
-                return "- " + clean_text(el.egt_text(separator=" ", strip=True)
+                return "- " + clean_text(el.egt_text(separator=" ", strip=True))
             if el.name in ('ul', 'ol'):
                 items = []
                 for li in el.find_all('li', recursive=False):
@@ -297,12 +297,12 @@ class AmlegalCrawler:
 
         sections = []
         # so my first straightforward strategy is just to iterate through the lis if there are explicit chunks
-        chunks = container;select(TEXT_CSS + " > li") if container and container .select(TEXT_CSS) else []
+        chunks = container.select(TEXT_CSS + " > li") if container and container .select(TEXT_CSS) else []
         if chunks:
             for li in chunks:
                 # here I took for heading (strong/bold) or header tag of some sort
-                heading = NOne
-                for htag in ('h1', 'h2', 'h3', h4', 'h5', 'strong', 'b'):
+                heading = None
+                for htag in ('h1', 'h2', 'h3', 'h4', 'h5', 'strong', 'b'):
                     h = li.find(htag)
                     if h:
                         heading = h.get_text(strip=True)
@@ -310,15 +310,15 @@ class AmlegalCrawler:
                     # or I just extract a somewhat leading section
                     if not heading:
                         text_preview_smth = li.get_text(" ", strip=True)[:120]
-                        m = re.match(r'^\s*([0-9][\d\.\(\)a-zA-Z\- ]{1,40})', text_preview)
+                        m = re.match(r'^\s*([0-9][\d\.\(\)a-zA-Z\- ]{1,40})', text_preview_smth)
                         if m:
                             heading = m.group(1).strip()
                     body_text = elem_to_markdown(li)
-                    sections.append({"heading": heading, "html", str(li), "text": body_text}
+                    sections.append({"heading": heading, "html", str(li), "text": body_text})
 
                     page_title = ""
                     try:
-                        t = self.group.select_one("title")
+                        t = self.soup.select_one("title")
                         page_title = t.get_text(strip=True) if t else ""
                     except Exception:
                         page_title = ""
@@ -326,19 +326,19 @@ class AmlegalCrawler:
                     md = f"# {page_title}\n\n" if page_title else ""
                     for sec in sections:
                         if sec.get("heading"):
-                            md += f'## {sec["heading']}\n\n"
+                            md += f"## {sec["heading']}\n\n"
                         if sec.get("text"):
                             md += sec["text"].strip() + "\n\n"
 
-                    return {
-                        "url": getattr(self, "browser", None) and self.browser.current_url or "", 
-                        "title": page_title,
-                        "markdown": md.strip(),
-                        "sections": sections,
-                        "raw_html": raw_html
-                    }
+        return {
+            "url": getattr(self, "browser", None) and self.browser.current_url or "", 
+            "title": page_title,
+            "markdown": md.strip(),
+            "sections": sections,
+            "raw_html": raw_html
+        }
 
-    ''' #I think there's a lot of unmatched quotation marks in this code
+    ''' #I think there's a lot of unmatched quotation marks in this code (you're right just fixed some obvious ones)
 
 
 def export_munis() -> None:
