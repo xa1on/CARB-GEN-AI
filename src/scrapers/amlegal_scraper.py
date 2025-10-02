@@ -24,7 +24,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 
 SNAPSHOTS_DIR = "snapshots"
-
 LOADING_CSS_SELECTOR = ".fa-2x"
 TIMEOUT = 120
 INDEX_CSS = 'a[class="browse-link roboto"]'
