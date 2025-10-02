@@ -108,7 +108,7 @@ class MuniCodeCrawler:
             search_bar = self.browser.find_element(By.CSS_SELECTOR, SEARCH_IN_SEARCH_CSS)
         search_bar.clear()
         search_bar.send_keys(search_term, Keys.RETURN)
-        self.wait.until(EC.invisibility_of_element_located((By.CSS_SELECTOR, LOADING_CSS_SELECTOR)))
+        self.wait_visibility(LOADING_CSS_SELECTOR)
         self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
         return self
 

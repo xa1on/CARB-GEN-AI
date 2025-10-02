@@ -29,6 +29,8 @@ INDEX_CSS = 'a[class="browse-link roboto"]'
 CODE_CSS = "a[class=toc-link]"
 BODY_CSS = "#codesContent"
 TEXT_CSS = "ul.chunks.list-unstyled.small-padding"
+SEARCH_CSS = 'input[class="search__input form-control"]'
+SEARCH_RESULT_CSS = 'a[class="select-search"]'
 
 DEPTH: dict[str: int] = {
     "Titles": 0,
@@ -47,18 +49,17 @@ def stripped_splitter(text: str, separator=' ') -> str:
     return result[len(separator):]
 
 class SearchResult:
-    def __init__(self, href: str, name: str, chapter_name: str, related_text: str):
+    def __init__(self, href: str, name: str):
         self.href = href
         self.name = name
-        self.chapter_name = chapter_name
-        self.related_text = related_text
     
     def __repr__(self) -> str:
         return f"href={self.href}, name={self.name}, chapter_name={self.chapter_name}, related_text={self.related_text}"
 
 class AmlegalCrawler:
     home_url: str = "https://codelibrary.amlegal.com/"
-    def __init__(self, starting_url: str=home_url): 
+    search_url: str = "https://codelibrary.amlegal.com/search"
+    def __init__(self, search=False, starting_url: str=home_url, searching_url: str=search_url): 
         """
         Create new AmlegalCrawler Object
 
@@ -74,7 +75,10 @@ class AmlegalCrawler:
 
 
         self.browser.set_window_size(1024, 1024)
-        self.go(starting_url)
+        if search == True:
+            self.go(searching_url)
+        else:
+            self.go(starting_url)
 
     def wait_visibility(self, CSS):
         self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, CSS)))
@@ -90,6 +94,7 @@ class AmlegalCrawler:
         """
         self.browser.get(url)
         self.wait_visibility(LOADING_CSS_SELECTOR)
+        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
         return self
     
 
@@ -99,7 +104,12 @@ class AmlegalCrawler:
 
         :param search_term: search term to use for search
         """
-        pass
+        search_bar = self.browser.find_element(By.CSS_SELECTOR, SEARCH_CSS)
+        search_bar.clear()
+        search_bar.send_keys(search_term, Keys.RETURN)
+        self.wait_visibility(LOADING_CSS_SELECTOR)
+        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
+        return self
     
     def contains_child(self) -> bool:
         """
@@ -123,7 +133,14 @@ class AmlegalCrawler:
         :param self:
         :return: list of SearchResults
         """
-        pass
+        self.wait_visibility(SEARCH_RESULT_CSS)
+        search_results = self.soup.select(SEARCH_RESULT_CSS)
+        result: dict[str: SearchResult] = {}
+        for res in search_results:
+            name = res.text
+            href = self.home_url + res["href"]
+            result[name] = SearchResult(href,name)
+        return result
 
     def scrape_index_link(self) -> dict[str: str]:
         """
@@ -173,9 +190,8 @@ class AmlegalCrawler:
                 if re.search(pattern,code.text):
                     new_codes.append(code)
             codes = list(new_codes)
-        print(codes)
         for code in codes:
-            code_text = code.text.strip()
+            code_text = code.text.strip()+(' '+code.next_sibling.strip() if code.next_sibling else "")
             result[code_text] = "https://codelibrary.amlegal.com" + code["href"]
         return result
     
@@ -213,29 +229,34 @@ def export_munis() -> None:
 def test_text_scrape():
     pass
 
-def test_search():
-    pass
+def test_search(term):
+    aml_scraper = AmlegalCrawler(True)
+    aml_scraper.search(term)
+    return aml_scraper.scrape_search()
 
 
 def main():
     aml_scraper = AmlegalCrawler()
-    
-    # showcase state scraping! the scraper currently doesn't work since 
-
-    aml = aml_scraper.scrape_munis() # gets a dict of municipalities in the state of california
-    print(aml)
-    aml_scraper.go(aml["adelanto"]) # goes to adelanto
+    states = aml_scraper.scrape_states()
+    del states['view google map of online clients']
+    print(states)
+    aml_scraper.go(states['california'])
+    muni = aml_scraper.scrape_munis() # gets a dict of municipalities in the state of california
+    print(muni)
+    aml_scraper.go(muni["adelanto"]) # goes to adelanto
     titles = aml_scraper.scrape_titles() # grabs all the titles for adelanto
     print(titles)
     aml_scraper.go(titles["TITLE 1 GENERAL PROVISIONS"]) # scrapes the chapters in title 1
     chapters = aml_scraper.scrape_chapters()
     print(chapters)
-    aml_scraper.go(chapters["1.01"]) # access chapter
+    aml_scraper.go(chapters["1.01 Code Adopted"]) # access chapter
     # if (muni_scraper.contains_child()): All chapters seems to have articles, thus this line is omitted
     articles = aml_scraper.scrape_articles() # scrapes the articles
     print(articles)
-    aml_scraper.go(articles["1.01.010"]) # access chapter's article
+    aml_scraper.go(articles["1.01.010 Declaration of Purpose"]) # access chapter's article
     print(aml_scraper.scrape_text()) # scrapes all text from article
 
 if __name__ == "__main__":
-    main()
+    results = test_search("adelanto")
+    for key in results:
+        print(key, results[key].href)
