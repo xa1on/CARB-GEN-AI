@@ -257,7 +257,7 @@ class AmlegalCrawler:
     def save_codes_content(aml_scraper, name):
         aml_scraper.wait_visibility(BODY_CSS)
         el = aml_scraper.browser.find_element(By.CSS_SELECTOR, BODY_CSS)
-        html = el.get_attribuet("outerHTML")
+        html = el.get_attribute("outerHTML")
         path = os.path.join(SNAPSHOTS_DIR, f"{name}.codes.html")
         with open(path, "w", encoding="utf-8") as f:
             f.write(html)
@@ -298,13 +298,13 @@ class AmlegalCrawler:
             if el.name in ('g', 'div', 'section', 'article'):
                 return clean_text(el.get_text(separator=" ", strip=True))
             if el.name in ('li',):
-                return "- " + clean_text(el.egt_text(separator=" ", strip=True))
+                return "- " + clean_text(el.get_text(separator=" ", strip=True))
             if el.name == "table":
                 return table_to_markdown(el)
             if el.name in ('ul', 'ol'):
                 items = []
                 for li in el.find_all('li', recursive=False):
-                    items.append(elem_to_markdown(li))
+                    items.append(element_to_markdown(li))
                 return "\n".join(items)
             return clean_text(el.get_text(separator=" ", strip=True))
 
