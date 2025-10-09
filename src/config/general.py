@@ -8,3 +8,5 @@ LOG_PATH = "log.md"
 RELEVANCE_THRESHOLD = 4 # completely arbitrary
 
 SEARCH_TERM_LIMIT = 3 # only use the first 3 search terms
+
+LLM_ATTEMPT_LIMIT = 5

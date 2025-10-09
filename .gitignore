@@ -6,5 +6,5 @@ __pycache__
 logs
 *log.md
 archive
-src/data
-src/result
+data
+result

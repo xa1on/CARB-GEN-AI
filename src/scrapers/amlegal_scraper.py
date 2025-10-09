@@ -6,7 +6,7 @@ Scrapes codelibrary.amlegal.com/regions/ca for municipality codes
 Notes: something really similar should be done with codelibrary.amlegal.com and generalcode.com/library
 
 Authors: Chenghao Li, Zack Yu, Bo Wang
-Org: University of Toronto - School of Cities
+Org: Urban Displacement Project: UC Berkeley / University of Toronto
 """
 
 import time
@@ -84,6 +84,11 @@ class AmlegalCrawler:
         self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, CSS)))
         self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
         return self
+
+    def wait_invisibility(self, CSS):
+        self.wait.until(EC.invisibility_of_element_located((By.CSS_SELECTOR, CSS)))
+        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
+        return self
     
     def go(self, url):
         """
@@ -93,8 +98,7 @@ class AmlegalCrawler:
         :return:
         """
         self.browser.get(url)
-        self.wait_visibility(LOADING_CSS_SELECTOR)
-        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
+        self.wait_invisibility(LOADING_CSS_SELECTOR)
         return self
     
 
@@ -107,8 +111,7 @@ class AmlegalCrawler:
         search_bar = self.browser.find_element(By.CSS_SELECTOR, SEARCH_CSS)
         search_bar.clear()
         search_bar.send_keys(search_term, Keys.RETURN)
-        self.wait_visibility(LOADING_CSS_SELECTOR)
-        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
+        self.wait_invisibility(LOADING_CSS_SELECTOR)
         return self
     
     def contains_child(self) -> bool:

@@ -29,4 +29,4 @@
 - ```python src/link_test.py```
   - find broken links in a an input csv
     - you can export the google spreadsheet as a csv through file -> download -> csv
-  - run the file and it'll generate a text file containing all the broken links it finds into `src/data/result`
+  - run the file and it'll generate a text file containing all the broken links it finds into `data/result`

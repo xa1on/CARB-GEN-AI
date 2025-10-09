@@ -1,11 +1,18 @@
+"""
+Checks for broken links in a CSV (404, dead link, etc.)
+
+Authors: Chenghao Li
+Org: Urban Displacement Project: UC Berkeley / University of Toronto
+"""
+
 import csv
 import urllib.request
 import json
 from selenium import webdriver
 
-CSV_FILE = "src/data/ord tables/2025 ARB Policy Map Ordinance Table - Los Angeles.csv"
+CSV_FILE = "data/ord tables/2025 ARB Policy Map Ordinance Table - Los Angeles.csv"
 LINK_COLUMN = "Source"
-LOG_FILE = "src/result/log.txt"
+LOG_FILE = "result/log.txt"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0",
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
@@ -19,9 +26,13 @@ def log(text):
 
 def get_status_code(driver, url):
     """
+    Returns status code of website
+
     From stack overflow
 
     https://stackoverflow.com/a/69758112
+
+    :param driver: 
     """
     driver.get(url)
     for entry in driver.get_log('performance'):

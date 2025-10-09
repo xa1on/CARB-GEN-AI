@@ -12,9 +12,9 @@ load_dotenv()
 GEMINI_PAID_API_KEY = os.getenv('GEMINI_PAID') # google cloud api key
 GEMINI_FREE_API_KEY = os.getenv('GEMINI_FREE')
 
-REFERENCE = "src/data/8 cities 3 policies.csv"
-QUERIES = "src/data/QUERIES.json"
-RESULT = "src/data/result.csv"
+REFERENCE = "data/8 cities 3 policies.csv"
+QUERIES = "data/QUERIES.json"
+RESULT = "data/result.csv"
 LOGS = "logs/"
 
 def batch(client, muni_nav, reference, queries, result, logs, free_client=None):
