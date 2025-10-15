@@ -360,7 +360,7 @@ class GeneralCodeCrawler:
         return items
 
     def scrape_ecode360_text(self) -> str:
-        """Scrape ordinance text from current eCode360 section"""
+        """Scrape ordinance text from current eCode360 section in Markdown format"""
         print("Scraping eCode360 text content...")
         self.wait_for_ecode360_load()
         
@@ -371,6 +371,12 @@ class GeneralCodeCrawler:
             print("Warning: No content area found")
             return ""
         
+        # Extract title/heading if present
+        title = content_area.select_one("span.titleTitle, h1, h2")
+        if title:
+            result += f"# {title.get_text(strip=True)}\n\n"
+        
+        # Handle definition lists
         deftexts = content_area.select("div.deftext")
         if deftexts:
             print(f"Found {len(deftexts)} definition blocks")
@@ -379,12 +385,13 @@ class GeneralCodeCrawler:
                 if parent:
                     term_link = parent.find("a", class_="termLink")
                     if term_link:
-                        result += f"**{term_link.get_text(strip=True)}**\n"
+                        result += f"**{term_link.get_text(strip=True)}**\n\n"
                 text = stripped_splitter(deftext.get_text())
                 if text:
                     result += text + "\n\n"
             return result.strip()
         
+        # Handle regular content with formatting
         paragraph_selectors = ["p.para", "div.para", "div.section-content", "p"]
         paragraphs = []
         for selector in paragraph_selectors:
@@ -396,9 +403,26 @@ class GeneralCodeCrawler:
         
         if paragraphs:
             for para in paragraphs:
-                text = stripped_splitter(para.get_text())
-                if text:
-                    result += text + "\n\n"
+                # Handle bold text
+                for bold in para.find_all(['b', 'strong']):
+                    bold_text = bold.get_text(strip=True)
+                    bold.replace_with(f"**{bold_text}**")
+                
+                # Handle italic text
+                for italic in para.find_all(['i', 'em']):
+                    italic_text = italic.get_text(strip=True)
+                    italic.replace_with(f"*{italic_text}*")
+                
+                # Handle lists
+                if para.name == 'li':
+                    text = stripped_splitter(para.get_text())
+                    if text:
+                        result += f"- {text}\n"
+                else:
+                    text = stripped_splitter(para.get_text())
+                    if text:
+                        result += text + "\n\n"
+            
             print(f"Extracted {len(result)} characters of text")
             return result.strip()
         
