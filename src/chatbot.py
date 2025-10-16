@@ -167,7 +167,7 @@ def llm_query(client: genai.Client, contents: str|list[types.Content], config: t
             return llm_query(client=client, contents=contents, config=config, model=model, attempt=attempt + 1)
         else:
             log(f"\n\n#### ERROR OCCURED ({e}). ATTEMPT LIMIT REACHED ({attempt}).\n\n")
-            return []
+            exit()
 
 
 
@@ -318,6 +318,13 @@ def search_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, mun
                         return (structure(free_client, response.response))
                 else:
                     log(f"""## Already visited, going back...\n\n""")
+    # no answer found. need to move to named tuple or something b/c none_found is not in the schema
+    return {
+        "none_found": True,
+        "binary_response": False,
+        "sources": [],
+        "response_confidence": 1
+    }
         
 
     
@@ -340,12 +347,17 @@ def chatbot_query(client: genai.Client, scraper: municode.MuniCodeCrawler, state
         munis = json.load(file)
     scraper.go(munis[state_name]["municipalities"][muni_name])
     search_answer = search_answerer(client, scraper, muni_name, query, free_client, search_terms)
-    if search_answer:
+    if search_answer and (not "none_found" in search_answer or not search_answer["none_found"]):
         return search_answer
     traversal_answer = traversal_answerer(client, scraper, muni_name, query, free_client)
     if traversal_answer:
         return traversal_answer
-    return None
+    return {
+        "none_found": True,
+        "binary_response": False,
+        "sources": [],
+        "response_confidence": 1
+    }
     
 
 def main():
@@ -356,14 +368,14 @@ def main():
     state = "california"
     muni = "campbell"
     query = "Is there any mention of the implementation or use of a Just Cause Eviction policy? These policies may also be called or mention Retaliatory Evictions. This typically involves requiring landlords or property owners to have a valid reason to evict a tenant. They may also be called good cause eviction or for cause eviction, etc. True/False?"
-    search_terms = ["Just Cause", "Eviction Policy", "Retaliatory Eviction"]
+    search_terms = ["eviction", "Just cause eviction", "retaliatory evictions", "good cause eviction", "for cause eviction"]
     
     # manual input
     state = state or input("State: ").lower()
     muni = muni or input("Municipality: ").lower()
     query = query or input("Question: ")
 
-    chatbot_query(client=paid_client, scraper=municode_nav, state_name=state, muni_name=muni, query=query, free_client=free_client)
+    chatbot_query(client=paid_client, scraper=municode_nav, state_name=state, muni_name=muni, query=query, free_client=free_client, search_terms=search_terms)
     
 
     

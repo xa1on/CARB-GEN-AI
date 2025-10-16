@@ -147,7 +147,8 @@ class MuniCodeCrawler:
             name = link.text.replace('\n', '').replace('*', '')
             related_text = stripped_splitter(search_result.find("div", {"ng-bind-html": "::hit.ContentFragment"}).text)
             directories = search_result.select_one("ol.breadcrumb").select("a")
-            result[name] = SearchResult(href=link["href"], name=name, chapter_name=stripped_splitter(directories[-1].text).replace('*', ''), related_text=related_text)
+            chapter_name = stripped_splitter(directories[-1].text).replace('*', '')
+            result[name] = SearchResult(href=link["href"], name=chapter_name, chapter_name=chapter_name, related_text=related_text)
         return result
 
     def scrape_index_link(self) -> dict[str: str]:
