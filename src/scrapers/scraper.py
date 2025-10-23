@@ -18,17 +18,8 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-
-
-
 SNAPSHOTS_DIR = "snapshots"
 TIMEOUT = 120
-
-DEPTH: dict[str: int] = {
-    "Titles": 0,
-    "Chapters": 1,
-    "Articles": 2
-}
 
 def stripped_splitter(text: str, separator=' ') -> str:
     # split by newline and strip leading and tailing spaces
@@ -50,11 +41,11 @@ class SearchResult:
     def __repr__(self) -> str:
         return f"href={self.href}, name={self.name}, chapter_name={self.chapter_name}, related_text={self.related_text}"
 
-class MuniCodeCrawler:
+class Scraper:
     home_url: str = "https://library.municode.com"
     def __init__(self, starting_url: str=home_url):
         """
-        Create new MuniCodeCrawler Object
+        Create new MuniCodeScraper Object
 
         :param self:
         :return: returns new object

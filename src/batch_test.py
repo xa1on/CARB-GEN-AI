@@ -171,7 +171,7 @@ def evaluate(results, reference):
 def main():
     free_client = genai.Client(api_key=GEMINI_FREE_API_KEY)
     paid_client = genai.Client(api_key=GEMINI_PAID_API_KEY)
-    municode_nav = municode.MuniCodeCrawler()
+    municode_nav = municode.MuniCodeScraper()
     answer, reference = batch(paid_client, municode_nav, REFERENCE, QUERIES, RESULT, LOGS, free_client=free_client)
     evaluate(answer, reference)
     

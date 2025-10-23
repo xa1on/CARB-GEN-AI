@@ -7,6 +7,7 @@ Authors: Chenghao Li
 Org: Urban Displacement Project: UC Berkeley / University of Toronto
 """
 
+import scrapers.scraper as scraper
 import scrapers.municode_scraper as municode
 import config.instruction as inst
 import config.general as general_args
@@ -278,7 +279,7 @@ def search_term_generator(client: genai.Client, query: str) -> list[str]:
     search_terms: list[str] = [term["name"] for term in terms][:general_args.SEARCH_TERM_LIMIT]
     return search_terms
 
-def search_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, muni_name: str, query: str, free_client: genai.Client|None=None, search_terms: list[str]|None=None, visited: set[str]|None=None):
+def search_answerer(client: genai.Client, scraper: scraper.Scraper, muni_name: str, query: str, free_client: genai.Client|None=None, search_terms: list[str]|None=None, visited: set[str]|None=None):
     """
     Utilize scraper search to answer query
 
@@ -329,7 +330,7 @@ def search_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, mun
 
     
 
-def traversal_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, muni_name: str, query: str, free_client: genai.Client|None=None, visited: set[str]|None=None):
+def traversal_answerer(client: genai.Client, scraper: scraper.Scraper, muni_name: str, query: str, free_client: genai.Client|None=None, visited: set[str]|None=None):
     """
     TODO: title section name sorting w/ sorter, then scrape and query for answer (CL)
     """
@@ -337,7 +338,7 @@ def traversal_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, 
         print("FREE CLIENT NOT FOUND. USING PAID CLIENT")
         free_client = client
 
-def chatbot_query(client: genai.Client, scraper: municode.MuniCodeCrawler, state_name: str, muni_name: str, query: str, free_client: genai.Client|None=None, search_terms: list[str]|None=None):
+def chatbot_query(client: genai.Client, scraper: scraper.Scraper, state_name: str, muni_name: str, query: str, free_client: genai.Client|None=None, search_terms: list[str]|None=None):
     """
 
 
@@ -361,7 +362,7 @@ def chatbot_query(client: genai.Client, scraper: municode.MuniCodeCrawler, state
     
 
 def main():
-    municode_nav = municode.MuniCodeCrawler() # open crawler
+    municode_nav = municode.MuniCodeScraper() # open crawler
     clear_log()
     free_client = genai.Client(api_key=GEMINI_FREE_API_KEY)
     paid_client = genai.Client(api_key=GEMINI_PAID_API_KEY)
