@@ -212,31 +212,29 @@ NUMERIC_RESPONSE_SCHEMA = {
     "required": ["number", "units"]
 }
 
+CONDITION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "condition": CATEGORICAL_RESPONSE_SCHEMA,
+        "conditioned_response": CATEGORICAL_RESPONSE_SCHEMA
+    },
+    "required": ["condition", "conditioned_response"]
+}
+
 CONDITIONAL_RESPONSE_SCHEMA = {
     "type": "array",
     "minItems": 2,
-    "items": {
-        "type": "object",
-        "properties": {
-            "condition": CATEGORICAL_RESPONSE_SCHEMA,
-            "conditioned_response": CATEGORICAL_RESPONSE_SCHEMA
-        },
-        "required": ["condition", "conditioned_response"]
-    }
+    "items": CONDITION_SCHEMA
 }
 
 SOURCE_RESPONSE_SCHEMA = {
-    "type": "array",
-    "minItems": 1,
-    "items": {
-        "type": "object",
-        "properties": {
-            "source_url": CATEGORICAL_RESPONSE_SCHEMA,
-            "page_name": CATEGORICAL_RESPONSE_SCHEMA,
-            "relevant_quotation_from_source": CATEGORICAL_RESPONSE_SCHEMA
-        },
-        "required": ["source_url", "relevant_quotation_from_source", "page_name"]
-    }
+    "type": "object",
+    "properties": {
+        "source_url": CATEGORICAL_RESPONSE_SCHEMA,
+        "page_name": CATEGORICAL_RESPONSE_SCHEMA,
+        "relevant_quotation_from_source": CATEGORICAL_RESPONSE_SCHEMA
+    },
+    "required": ["source_url", "relevant_quotation_from_source", "page_name"]
 }
 
 RESPONSE_SCHEMA = {
@@ -246,7 +244,11 @@ RESPONSE_SCHEMA = {
         "numeric_response": NUMERIC_RESPONSE_SCHEMA,
         "categorical_response": CATEGORICAL_RESPONSE_SCHEMA,
         "conditional_response": CONDITIONAL_RESPONSE_SCHEMA,
-        "sources": SOURCE_RESPONSE_SCHEMA,
+        "sources": {
+            "type": "array",
+            "minItems": 1,
+            "items": SOURCE_RESPONSE_SCHEMA
+        },
         "response_confidence": {"type": "number"},
     },
     "required": ["sources", "response_confidence"]

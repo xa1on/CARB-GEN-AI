@@ -48,6 +48,61 @@ class ResponseItem:
         self.thoughts: str = thoughts
 
 
+class SourceResponse:
+    """
+    Query Response sources based on source schema
+
+    MUST MIRROR SOURCE_RESPONSE_SCHEMA FROM instruction.py
+    """
+
+    def __init__(self, source_url: str, page_name: str, relevant_quotation_from_source: str):
+        self.source_url: str = source_url
+        self.page_name: str = page_name
+        self.relevant_quotation_from_source: str = relevant_quotation_from_source
+    
+    @classmethod
+    def from_dict(cls, source: dict[str:str]):
+        return cls(**source)
+
+
+class ConditionalResponse:
+    """
+    Query Response types based on conditional responses
+
+    MUST MIRROR CONDITION_SCHEMA FROM instruction.py
+    """
+
+    def __init__(self, condition: str, conditioned_response: str):
+        self.condition: str = condition
+        self.conditioned_reponse: str = conditioned_response
+    
+    @classmethod
+    def from_dict(cls, source: dict[str:str]):
+        return cls(**source)
+
+class QueryResponse:
+    """
+    Query Response to store response answers based on response schema
+
+    MUST MIRROR RESPONSE_SCHEMA FROM instruction.py
+    """
+
+    def __init__(self, sources: list[SourceResponse], response_confidence: float|None=None, binary_response: bool|None=None, numeric_response: float|None=None, categorical_response: str|None=None, conditional_response: list[ConditionalResponse]|None=None):
+        self.sources: list[SourceResponse] = sources
+        self.response_confidence: float = response_confidence
+        if binary_response != None:
+            self.binary_response: bool = binary_response
+        if numeric_response != None:
+            self.numeric_response: float = numeric_response
+        if categorical_response != None:
+            self.categorical_response: str = categorical_response
+        if conditional_response != None:
+            self.conditional_response: list[ConditionalResponse] = conditional_response
+    
+    @classmethod
+    def from_dict(cls, source: dict[str:]):
+        return cls(**source)
+
 def start_logging() -> None:
     """
     Clears log and begins logging in log file
@@ -162,14 +217,13 @@ def llm_query(client: genai.Client, contents: str|list[types.Content], config: t
         return result
     except ServerError as e:
         if attempt < general_args.LLM_ATTEMPT_LIMIT:
-            log(f"\n\n#### ERROR OCCURED ON ATTEMPT ({attempt}) ERROR: ({e}). RETRYING IN 10 SECONDS\n\n")
-            time.sleep(10)
+            log(f"\n\n#### ERROR OCCURED ON ATTEMPT ({attempt}) ERROR: ({e}). RETRYING IN {general_args.LLM_ATTEMPT_DELAY} SECONDS\n\n")
+            time.sleep(general_args.LLM_ATTEMPT_DELAY)
             log(f"#### RETRYING...\n\n")
             return llm_query(client=client, contents=contents, config=config, model=model, attempt=attempt + 1)
         else:
             log(f"\n\n#### ERROR OCCURED ({e}). ATTEMPT LIMIT REACHED ({attempt}).\n\n")
             exit()
-
 
 
 def join_list(element: list[str]|dict[str: str], seperator: str=", ") -> str:
@@ -327,9 +381,6 @@ def search_answerer(client: genai.Client, scraper: scraper.Scraper, muni_name: s
         "response_confidence": 1
     }
         
-
-    
-
 def traversal_answerer(client: genai.Client, scraper: scraper.Scraper, muni_name: str, query: str, free_client: genai.Client|None=None, visited: set[str]|None=None):
     """
     TODO: title section name sorting w/ sorter, then scrape and query for answer (CL)
