@@ -159,7 +159,7 @@ def join_list(element: list[str]|dict[str: str], seperator: str=", ") -> str:
     return result
 
 def run_sorter(client: genai.Client, names: list[str], query: str) -> list[RelevanceItem]:
-    
+
     result: list[RelevanceItem] = []
     names = list(names)
     vectors = [
@@ -261,15 +261,48 @@ def search_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, mun
                     log(f"""## Already visited, going back...\n\n""")
         
 
+def closest(client: genai.Client, query: str, items: list[str]):
+    items = list(items)
+    vectors = [
+        np.array(e.values) for e in client.models.embed_content(
+            model="gemini-embedding-001",
+            contents=[query]+items,
+            config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY")).embeddings
+    ]
+
+    
+    embeddings_matrix = np.array(vectors)
+    similarity_matrix = cosine_similarity(embeddings_matrix)
+
+    max = float('-inf')
+    closest_item = items[0]
+    for i in range(1,len(items)+1):
+        similarity = similarity_matrix[0,i]
+        if similarity>max:
+            max = similarity
+            closest_item = items[i-1]
+    return closest_item
     
 
-def traversal_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, muni_name: str, query: str, free_client: genai.Client|None=None, visite: set[str]|None=None):
+def traversal_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, query: str):
     """
     TODO: title section name sorting w/ sorter, then scrape and query for answer (CL)
     """
-    if not free_client:
-        print("FREE CLIENT NOT FOUND. USING PAID CLIENT")
-        free_client = client
+    states = scraper.scrape_states()
+    scraper.go(states[closest(client,query,states.keys())])
+    muni = scraper.scrape_munis()
+    scraper.go(muni[closest(client,query,muni.keys())])
+    titles = scraper.scrape_titles()
+    scraper.go(titles[closest(client,query,titles.keys())])
+    chapters = scraper.scrape_chapters()
+    scraper.go(chapters[closest(client,query,chapters.keys())])
+    if (scraper.contains_child()):
+        articles = scraper.scrape_articles()
+        scraper.go(articles[closest(client,query,articles.keys())])
+        return scraper.scrape_text()
+    return "articles not found"
+
+    
 
 def chatbot_query(client: genai.Client, scraper: municode.MuniCodeCrawler, state_name: str, muni_name: str, query: str, free_client: genai.Client|None=None, search_terms: list[str]|None=None):
     munis = {}
@@ -283,9 +316,11 @@ def chatbot_query(client: genai.Client, scraper: municode.MuniCodeCrawler, state
     if traversal_answer:
         return traversal_answer
     return None
+
     
 
 def main():
+    '''
     municode_nav = municode.MuniCodeCrawler() # open crawler
     clear_log()
     free_client = genai.Client(api_key=GEMINI_FREE_API_KEY)
@@ -301,8 +336,11 @@ def main():
     query = query or input("Question: ")
 
     chatbot_query(client=paid_client, scraper=municode_nav, state_name=state, muni_name=muni, query=query, free_client=free_client)
-    
-
+    '''
+    municode_nav = municode.MuniCodeCrawler() # open crawler
+    free_client = genai.Client(api_key=GEMINI_FREE_API_KEY)
+    query = "Is there any mention of the implementation or use of a Just Cause Eviction policy? These policies may also be called or mention Retaliatory Evictions. This typically involves requiring landlords or property owners to have a valid reason to evict a tenant. They may also be called good cause eviction or for cause eviction, etc. True/False?"
+    print(traversal_answerer(free_client,municode_nav,query))
     
 
     
