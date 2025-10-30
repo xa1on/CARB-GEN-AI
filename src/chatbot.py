@@ -3,7 +3,7 @@ MUNICODE POLICY CHATBOT
 
 Gets answer to policy questions based on municode using gemini.
 
-Authors: Chenghao Li
+Authors: Chenghao Li, Ariana Siordia
 Org: Urban Displacement Project: UC Berkeley / University of Toronto
 """
 
@@ -315,7 +315,29 @@ def search_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, mun
                     context = scraper.scrape_text()
                     response = get_latest_response(answer(client=free_client, query=query, muni_name=muni_name, muni_url=muni_url, context=context))
                     if not "(NONE)" in response.response:
-                        return (structure(free_client, response.response))
+                        structured = (structure(free_client, response.response))
+                        
+                        if "sources" in structured and structured["sources"]:
+                            quotes_verified, failed_quotes = verify_quotes_exist(context, structured["sources"])
+            
+                            if not quotes_verified:
+                                log(f"Answer rejected - {len(failed_quotes)} quote(s) could not be verified\n\n")
+                                log("Continuing search for better evidence\n\n")
+                                continue
+
+                            llm_verified = llm_verify_answer(client=free_client, query=query, muni_name=muni_name, context=context, original_response=response.response)
+                            
+                            if llm_verified:
+                                log("Answer passed both verification steps\n\n")
+                                return structured  
+                            else:
+                                log("Answer rejected, LLM could not verify its own answer\n\n")
+                                log("Continuing search for better evidence\n\n")
+                                continue 
+                        else:
+                            log("No sources provided in response\n\n")
+                            log("Continuing search\n\n")
+                            continue
                 else:
                     log(f"""## Already visited, going back...\n\n""")
     # no answer found. need to move to named tuple or something b/c none_found is not in the schema
@@ -358,8 +380,66 @@ def chatbot_query(client: genai.Client, scraper: municode.MuniCodeCrawler, state
         "sources": [],
         "response_confidence": 1
     }
-    
 
+# Funcction that checks that the llm did not invent the quote
+def verify_quotes_exist(context: str, sources: list[dict]) -> tuple[bool, list[str]]:
+    """
+    Verify that all quoted text actually appears in the context
+    
+    :param context: The original scraped text
+    :param sources: List of source objects with relevant_quotation_from_source
+    :return: Tuple of (all_verified: bool, failed_quotes: list[str])
+    """
+    log("verifying quotes")
+    
+    failed_quotes = []
+    
+    for i, source in enumerate(sources):
+        quote = source.get("relevant_quotation_from_source", "")
+        
+        if not quote:
+            log(f"Source {i+1} has no quote\n\n")
+            continue
+        
+        # Normalize text
+        normalized_quote = " ".join(quote.split())
+        normalized_context = " ".join(context.split())
+        
+        # Check if quote exists in context
+        if normalized_quote.lower() in normalized_context.lower():
+            log(f"Quote {i+1} verified")
+            log(f"Quote: {quote[:100]}{'...' if len(quote) > 100 else ''}")
+        else:
+            log(f"Quote {i+1} not found in source text")
+            log(f"Missing quote: {quote[:200]}{'...' if len(quote) > 200 else ''}")
+            failed_quotes.append(quote)
+    
+    if failed_quotes:
+        log(f"Verification failed: {len(failed_quotes)} quote(s) could not be verified")
+        return False, failed_quotes
+    else:
+        log(f"All {len(sources)} quote(s) verified")
+        return True, []
+    
+# Function asking LLM to double check its answer
+def llm_verify_answer(client: genai.Client, query: str, muni_name: str, context: str, original_response: str) -> bool:
+    """
+    Ask the LLM to verify its own answer
+    """
+    log("## LLM SELF-VERIFICATION\n\n")
+    
+    verification_prompt = prompts.VERIFICATION_QUERY_TEMPLATE.format(muni_name=muni_name, query=query, original_response=original_response, context=context)
+    
+    verification = get_latest_response(llm_query(client, verification_prompt, inst.THINKER_CONFIG, inst.THINKING_MODEL))
+    
+    if "(VERIFIED)" in verification.response:
+        log("LLM confirmed its answer\n\n")
+        return True
+    
+    log("LLM rejected its own answer\n\n" if "(REJECTED)" in verification.response
+        else "LLM gave unclear verification response\n\n")
+    return False
+    
 def main():
     municode_nav = municode.MuniCodeCrawler() # open crawler
     clear_log()
