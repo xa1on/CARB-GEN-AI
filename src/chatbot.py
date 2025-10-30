@@ -175,7 +175,7 @@ def run_sorter(client: genai.Client, names: list[str], query: str) -> list[Relev
 
     log("### Relevance_Ratings:\n\n")
 
-    for i in range(1,len(names)):
+    for i in range(1,len(names)+1):
         similarity = similarity_matrix[0,i]
         log("# context:\n")
         log(names[i-1]+ "\n")
