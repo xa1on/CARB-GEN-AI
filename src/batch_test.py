@@ -184,4 +184,4 @@ def run_eval():
             evaluate(list(result), list(reference))
 
 if __name__ == "__main__":
-    main()
+    run_eval()

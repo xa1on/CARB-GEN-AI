@@ -88,6 +88,7 @@ class QueryResponse:
     """
 
     def __init__(self, sources: list[SourceResponse], response_confidence: float|None=None, binary_response: bool|None=None, numeric_response: float|None=None, categorical_response: str|None=None, conditional_response: list[ConditionalResponse]|None=None):
+        
         self.sources: list[SourceResponse] = sources
         self.response_confidence: float = response_confidence
         if binary_response != None:
@@ -101,7 +102,14 @@ class QueryResponse:
     
     @classmethod
     def from_dict(cls, source: dict[str:]):
-        return cls(**source)
+        params: dict[str:] = source.copy()
+        params["conditional_response"] = []
+        for response_case in source["conditional_response"]:
+            params["conditional_response"].append(ConditionalResponse.from_dict(response_case))
+        params["sources"] = []
+        for ind_source in source["sources"]:
+            params["sources"].append(SourceResponse.from_dict(ind_source))
+        return cls(**params)
 
 def start_logging() -> None:
     """
