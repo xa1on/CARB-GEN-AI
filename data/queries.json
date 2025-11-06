@@ -1,0 +1,181 @@
+{
+    "Just Cause Eviction": 
+    {
+        "query": "Is there any mention of the implementation or use of a Just Cause Eviction policy? These policies may also mention Retaliatory Evictions or be called a Retaliatory Eviction policy. They may also be called good cause eviction or for cause eviction, etc. This typically involves requiring landlords or property owners to have a valid reason to evict a tenant. A landlord must have a legitimate, legally recognized reason to evict a tenant, especially if they have lived in the unit for a certain amount of time (usually at least 12 months). The ordinance may include relocation assistance for tenants evicted without cause. Ensure the policy applies to most types of residential properties, not just mobile homes/parks. If you are given a document specific to mobile homes/parks, the answer is not given in that document, so return none/ignore. Answer: Yes/No/None?",
+        "search_terms": ["Eviction", "Just cause eviction", "retaliatory evictions", "good cause eviction", "for cause eviction"]
+    },
+
+
+    "Rent Stabilization or Rent Control": 
+    {
+        "query": "Is there any mention of the implementation or use of a Rent Stabilization or Rent Control policy? This typically involves limiting the amount a landlord or property owner can increase the rent of a property. They may also be called rent regulation or price controls for housing, etc. Ensure the policy applies to most types of residential properties, not just mobile homes/parks. If you are given a document specific to mobile homes/parks, the answer is not given in that document, so return none/ignore. Answer: Yes/No/None?",
+        "search_terms": ["Rent", "Rent control", "rent stabilization", "rent restriction", "rent increases"]
+    },
+
+    
+    "Rent Review Board":
+    {
+        "query": "Is there any mention of the implementation or use of a Rent Review Board policy? This is typically in the form of an autonomous/semi-autonomous administrative body that oversees disputes involving rent increases. The board is usually a commission, panel, or board run by the local government. They may also be called landlord and tenant board, etc. Answer: Yes/No/None?",
+        "search_terms": ["Rent", "Rent review board", "rent board", "rent review", "rent review commission"]
+    },
+
+
+    "Mobile Home Rent Control": 
+    {
+        "query": "Is there any mention of the implementation or use of a Mobile Home Rent Control policy? This is typically rent control, but specifically for mobile homes (RVs, Trailers, Campers, etc.). This typically limits rent increases for the land that a mobile home owner rents in a mobile home park. These may also be called land lease rent control, Space Rent Stabilization Ordinances, site rent control, etc. Answer: Yes/No/None?",
+        "search_terms": ["manufactured home", "mobile home", "Mobile home rent control", "manufactured home rent control", "Space Rent Stabilization Ordinance"]
+    },
+
+    "SRO Preservation": 
+    {
+        "query": "Is there any mention of the implementation or use of a single room occupancy preservation policy? This is also known as SRO preservation or single room occupancy (SRO) retention and typically involves construction loans and grant assistance when a property owner decides to sell a SRO property. Include motel preservation policies but not hotels in general. They may also be called residential hotel preservation or SRO Renewal, motel preservation, etc. Answer: Yes/No/None?",
+        "search_terms": ["Single room occupancy", "SRO", "Single room occupancy preservation", "single room occupancy standards", "SRO renewal"]
+    },
+
+
+    "Condo Conversion Restrictions": 
+    {
+        "query": "Is there any mention of the implementation or use of condo conversion restrictions? This is typically done to protect tenants during the conversion of rental properties into condominiums, by implementing tenant protections, not allowing areas of high demand to be converted, or restricting the conversion of affordable units. They may be also called rental replacement by-laws or restrictions on conversion of rental properties, etc. Some version of this may also include relocation assistance, affordability, and one-for-one housing. Answer: Yes/No/None?",
+        "search_terms": ["Condo", "Condominium", "Condominium conversion", "condominium conversion standards", "condominium restrictions"]
+    },
+
+
+    "Foreclosure Assistance":
+    {
+        "query": "Do any policies implement a form of Foreclosure or Homeownership Assistance policy? A foreclosure assistance policy typically aims to help homeowners from foreclosure due to mortgage default by providing various forms of financial, or loan assistance. They may be also called loss mitigation or foreclosure prevention, etc. Include other homeownership assistance for emergency assistance, but do not include first-time homebuyers assistance. Do not include emergency foreclosure programs from COVID or coronavirus that are expiring or going away soon. Foreclosure or homeownership assistance may also be called loss mitigation, foreclosure prevention, homeownership assistances, foreclosure assistance, relocation assistance, etc. Answer: Yes/No/None?",
+        "search_terms": ["Foreclosure", "foreclosure assistance", "foreclosure program", "homeowner assistance", "homeowner program", "relocation assistance"]
+    },
+
+
+
+    "Foreclosure or Homeownership Assistance":
+    {
+        "query": "Do any policies implement a form of Foreclosure or Homeownership Assistance policy? A foreclosure assistance policy typically aims to help homeowners from foreclosure due to mortgage default by providing various forms of financial, or loan assistance. They may be also called loss mitigation or foreclosure prevention, etc. Include other homeownership assistance for emergency assistance, but do not include first-time homebuyers assistance. Do not include emergency foreclosure programs from COVID or coronavirus that are expiring or going away soon. Foreclosure or homeownership assistance may also be called loss mitigation, foreclosure prevention, homeownership assistances, foreclosure assistance, relocation assistance, etc. Answer: Yes/No/None?",
+        "search_terms": ["Foreclosure", "foreclosure assistance", "foreclosure program", "homeowner assistance", "homeowner program", "relocation assistance"]
+    },
+
+
+    "Affordable-Housing Linkage Fees": 
+    {
+        "query": "Do any policies implement a form of Affordable Housing Linkage Fees? This is typically in the form of a policy that involves requiring developers of market-rate housing to contribute financially to affordable housing development through fees. These fees are often added to an affordable housing fund. Sometimes this is a fee for each square foot of new market-rate construction. They may just be called housing linkage fees, affordable housing impact fees, or development impact fees, etc. Answer: Yes/No/None?",
+        "search_terms": ["housing linkage fee", "affordable housing linkage fee", "development impact fee", "affordable housing impact fees"]
+    },
+
+
+    "Commercial Linkage Fees": 
+    {
+        "query": "Do any policies implement a form of Commercial Linkage Fees? This is typically in the form of a policy that involves requiring developers of new commercial properties to help financially fund affordable housing through fees. They may be also called job linkage fees, etc. Answer: Yes/No/None?",
+        "search_terms": ["commercial fee", "job linkage fee"]
+    },
+
+
+    "Housing Trust Fund": 
+    {
+        "query": "Is there any mention of the implementation or use of a Housing Trust Fund (HTF)? This is typically established to dedicate ongoing public revenue for affordable housing development and preservation. They may be called Community Housing Funds, Affordable Housing Funds, etc. Answer: Yes/No/None?",
+        "search_terms": ["Housing trust fund", "affordable housing fund", "community housing fund"]
+    },
+
+
+    "Inclusionary Zoning": 
+    {
+        "query": "Is there any mention of the implementation or use of an Inclusionary Zoning policy? This is typically when developers are required to include a certain percentage of affordable units in a housing property. There may be an option for developers to pay “in-lieu” fees, where instead of meeting an inclusionary zoning policy, a developer can pay fees that are then put into an affordable housing fund. They may also be called inclusionary housing or inclusionary planning, etc. Answer: Yes/No/None?",
+        "search_terms": ["Inclusionary housing", "inclusionary zoning", "in-lieu fee"]
+    },
+
+
+    "Density Bonus": 
+    {
+        "query": "Is there any mention of the implementation or use of a Density Bonus policy? This is typically a policy that involves allowing developers to build higher density housing in areas they are usually not permitted to in return for community benefits like affordable housing, public amenities, etc. Answer: Yes/No/None?",
+        "search_terms": ["density bonus", "density bonus for provision of affordable housing"]
+    },
+    
+
+    "Community Land Trusts":
+    {
+        "query": "Is there any mention of the implementation or use of a Community Land Trust (CLT) policy, which acquires and holds land for the benefit of the community to support affordable housing and homeownership? This is a form of shared equity or limited equity housing, where ownership is shared between the homeowner and the Community Land Trust nonprofit or other homeowners, with limits on the sale or rental price to ensure affordability. They may also be referred to generally as land trusts, etc. Answer: Yes/No/None?",
+        "search_terms": ["Community land trust", "shared equity, limited equity"]
+    },
+
+
+    "First Source Hiring Program":
+    {
+        "query": "Is there any mention of the implementation or use of a First Source Hiring Program policy? This is typically a policy that prioritizes local residents or specific groups for jobs created through government assisted projects or contracts. They may also be called First Source Employment or Local Hire/Hiring Program, etc. Answer: Yes/No/None?",
+        "search_terms": ["First source hiring program", "first source employment", "local hiring program"]
+    },
+
+    "ADUs":
+    {
+        "query": "Is there any mention of the implementation or use of an Accessory Dwelling Unit (ADU) policy? This is typically created to allow the construction of accessory dwelling units within an existing structure, as a detached structure, or a separate unit within a new building. They may also be referred to as secondary suites, in-law suites, basement apartments, garden suites, laneway houses, or accessory apartments, etc. Answer: Yes/No/None?",
+        "search_terms": ["Accessory dwelling unit", "ADU", "in-law suite", "basement apartment"]
+    },
+
+
+    "Housing Overlay Zones":
+    {
+        "query": "Is there any mention of the implementation or use of a Housing Overlay Zone (HOZ) policy? These typically involve adding specific regulations to existing zoning rules to encourage the development of affordable units by providing incentives to include affordable units in a property. They are different from Inclusionary Zoning policies or Density Bonus policies in that they require adherence to specific regulations while offering benefits for compliance instead of mandating or requiring it. They may also be referred to as overlay districts, Housing Element Implementation Zones, or zoning overlays, etc. Answer: Yes/No/None?",
+        "search_terms": ["Housing overlay", "Overlay zone", "housing overlay zone", "overlay district", "housing element implementation zone"]
+    },
+
+
+    "Land Value Recapture":
+    {
+        "query": "Is there any mention of the implementation or use of a Land Value Recapture or Land Value Capture policy? These typically involve recovering and reinvesting increases in land value that result from public investment. A Tax Increment Financing (TIF) program is a form of a Land Value Recapture policy. They may also be referred to as Betterment Levy, Windfall Tax, value sharing, value recovery, etc. Answer: Yes/No/None?",
+        "search_terms": ["Land value recapture", "land value capture", "betterment levy", "windfall tax"]
+    },
+
+
+    "Unsubsidized Affordable Housing Preservation (NOAH)":
+    {
+        "query": "Is there any mention of the implementation or use of an Unsubsidized Affordable Housing policy? These policies typically aim to protect existing affordable housing units that are not reliant on government subsidies. They may also be referred to as Naturally Occurring Affordable Housing (NOAH) preservation, etc. Answer: Yes/No/None?",
+        "search_terms": ["NOAH", "unsubsidized housing", "Naturally Occurring Affordable Housing (NOAH)", "Unsubsidized affordable housing preservation program"]
+    },
+
+
+    "Subsidized Housing Preservation":
+    {
+        "query": "Is there any mention of the implementation or use of a Subsidized Housing Preservation policy? These policies typically aim to protect existing affordable housing units, but are also subsidized by the municipal government. They may also be referred to as Affordable Housing Preservation, preservation of at-risk units, or refer specifically to the LIHTC program or LIHTC properties, etc. Answer: Yes/No/None?",
+        "search_terms": ["Affordable housing preservation", "LIHTC", "LIHTC properties", "preservation of at-risk units", "subsidized housing preservation"]
+    },
+
+
+    "Housing Rehabilitation Programs":
+    {
+        "query": "Is there any mention of the implementation or use of a Housing Rehabilitation Program? These policies typically aim to assist medium/low income homeowners repair or renovate their homes. They may also be referred to as Rehabilitation Program, Home Repair Program, or Homeowner Rehabilitation Assistance Program, etc. Answer: Yes/No/None?",
+        "search_terms": ["housing rehabilitation", "home repair program", "homeowner assistance program"]
+    },
+
+
+    "Tenant Opportunity to Purchase":
+    {
+        "query": "Is there any mention of the implementation or use of a Tenant Opportunity to Purchase (TOPA)? These policies typically aim to give tenants the opportunity to purchase a property when the owner decides to sell, before it can be sold to a third party. They may also be referred to as Opportunity to Purchase, right of first refusal, etc. Answer: Yes/No/None?",
+        "search_terms": ["tenant opportunity to purchase", "Community Opportunity to Purchase (COPA)", "right of first refusal", "tenant right to purchase", "TOPA"]
+    },
+
+
+    "Rental Assistance Programs":
+    {
+        "query": "Is there any mention of the implementation or use of a Rental Assistance Program? These policies typically aim to provide financial assistance to tenants in need (and sometimes landlords as well) to help prevent evictions. They may also be referred to as a tenant support program, eviction prevention assistance, etc. Answer: Yes/No/None?",
+        "search_terms": ["Rental assistance program", "Eviction prevention assistance", "tenant support program"]
+    },
+
+
+    "Tenant Right to Counsel":
+    {
+        "query": "Is there any mention of the implementation or use of a Tenant Right to Counsel (TRC) policy? These policies typically aim to guarantee legal representation for low-income tenants facing eviction cases and certain other housing issues, such as the termination of a rental housing subsidy. They may also be referred to as an eviction right to counsel, etc. Answer: Yes/No/None?",
+        "search_terms": ["Tenant right to counsel", "eviction right to counsel"]
+    },
+
+
+    "Short Term Rental Ban/Limitation":
+    {
+        "query": "Is there any mention of the implementation or use of a Short Term Rental (STR) Ban or Limitation policy? These policies typically aim to balance benefits of Short Term Rentals with concerns about housing affordability and community impact by banning or placing limitations on using rental units for short-term rentals such as airbnbs. They may also be referred to as transient rental restrictions, vacation rental regulations, short-term accommodation laws, etc. Answer: Yes/No/None?",
+        "search_terms": ["short term rental", "Short-term rental ban", "short-term rental restriction", "short-term accommodation laws", "vacation rental regulations"]
+    },
+
+
+    "Pass Through Limitation":
+    {
+        "query": "Is there any mention of the implementation or use of a Pass Through Limitation policy? These policies typically refer to a restriction on a landlord’s ability to pass certain costs (e.g., property taxes, capital improvement costs, maintenance expenses) directly onto tenants as rent increases. They may also be referred to as capital improvement rent surcharge limitation, pass-through limit, rent control ordinance pass-through, etc. Answer: Yes/No/None?",
+        "search_terms": ["capital improvement", "pass-through limitation", "pass-through limit"]
+    }
+}

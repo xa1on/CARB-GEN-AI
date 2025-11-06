@@ -103,9 +103,13 @@ class QueryResponse:
     @classmethod
     def from_dict(cls, source: dict[str:]):
         params: dict[str:] = source.copy()
-        params["conditional_response"] = []
-        for response_case in source["conditional_response"]:
-            params["conditional_response"].append(ConditionalResponse.from_dict(response_case))
+
+        if "conditional_response" in source:
+            params["conditional_response"] = []
+
+            for response_case in source["conditional_response"]:
+                params["conditional_response"].append(ConditionalResponse.from_dict(response_case))
+        
         params["sources"] = []
         for ind_source in source["sources"]:
             params["sources"].append(SourceResponse.from_dict(ind_source))
