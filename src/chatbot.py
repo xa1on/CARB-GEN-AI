@@ -87,8 +87,8 @@ class QueryResponse:
     MUST MIRROR RESPONSE_SCHEMA FROM instruction.py
     """
 
-    def __init__(self, sources: list[SourceResponse], response_confidence: float|None=None, binary_response: bool|None=None, numeric_response: float|None=None, categorical_response: str|None=None, conditional_response: list[ConditionalResponse]|None=None):
-        
+    def __init__(self, sources: list[SourceResponse], response_confidence: float|None=None, binary_response: bool|None=None, numeric_response: float|None=None, categorical_response: str|None=None, conditional_response: list[ConditionalResponse]|None=None, none_found: bool=False):
+        self.none_found: bool = none_found
         self.sources: list[SourceResponse] = sources
         self.response_confidence: float = response_confidence
         if binary_response != None:
@@ -378,16 +378,11 @@ def search_answerer(client: genai.Client, scraper: scraper.Scraper, muni_name: s
                     context = scraper.scrape_text()
                     response = get_latest_response(answer(client=free_client, query=query, muni_name=muni_name, muni_url=muni_url, context=context))
                     if not "(NONE)" in response.response:
-                        return (structure(free_client, response.response))
+                        return QueryResponse.from_dict(structure(free_client, response.response))
                 else:
                     log(f"""## Already visited, going back...\n\n""")
     # no answer found. need to move to named tuple or something b/c none_found is not in the schema
-    return {
-        "none_found": True,
-        "binary_response": False,
-        "sources": [],
-        "response_confidence": 1
-    }
+    return QueryResponse(none_found=True, binary_response=False, sources=[], response_confidence=1)
         
 def traversal_answerer(client: genai.Client, scraper: scraper.Scraper, muni_name: str, query: str, free_client: genai.Client|None=None, visited: set[str]|None=None):
     """
@@ -407,17 +402,12 @@ def chatbot_query(client: genai.Client, scraper: scraper.Scraper, state_name: st
         munis = json.load(file)
     scraper.go(munis[state_name]["municipalities"][muni_name])
     search_answer = search_answerer(client, scraper, muni_name, query, free_client, search_terms)
-    if search_answer and (not "none_found" in search_answer or not search_answer["none_found"]):
+    if search_answer and not search_answer.none_found:
         return search_answer
     traversal_answer = traversal_answerer(client, scraper, muni_name, query, free_client)
-    if traversal_answer:
+    if traversal_answer and not search_answer.none_found:
         return traversal_answer
-    return {
-        "none_found": True,
-        "binary_response": False,
-        "sources": [],
-        "response_confidence": 1
-    }
+    return QueryResponse(none_found=True, binary_response=False, sources=[], response_confidence=1)
     
 
 def main():
