@@ -1,4 +1,4 @@
-# NEEDS REWRITE
+# SUPER INEFFICIENT
 
 
 import os
@@ -12,13 +12,13 @@ load_dotenv()
 GEMINI_PAID_API_KEY = os.getenv('GEMINI_PAID') # google cloud api key
 GEMINI_FREE_API_KEY = os.getenv('GEMINI_FREE')
 
-REFERENCE = "data/8 cities 3 policies.csv"
-QUERIES = "data/QUERIES.json"
-RESULT = "data/result.csv"
+REFERENCE = "data/datasets/Santa Clara.csv"
+QUERIES = "data/queries.json"
+RESULT = "result/batch_result/result.csv"
 LOGS = "logs/"
-
+    
 def batch(client, muni_nav, reference, queries, result, logs, free_client=None):
-    data = open(queries)
+    data = open(queries, encoding="utf8")
     query_ref = json.load(data)
     data.close()
 
@@ -26,6 +26,7 @@ def batch(client, muni_nav, reference, queries, result, logs, free_client=None):
 
     answers = []
 
+    open(result, mode='a') # create result if not exists
     # update answers with answers in results
     with open(result, mode='r') as csv_file:
         csv_reader = csv.reader(csv_file)
@@ -36,7 +37,8 @@ def batch(client, muni_nav, reference, queries, result, logs, free_client=None):
             answers.append(list(line))
     with open(reference, mode='r') as csv_file:
         csv_reader = csv.reader(csv_file)
-        for line in csv_reader:
+        reference_answers = list(csv_reader)
+        for line in reference_answers:
             if not field_names:
                 field_names = line
                 with open(result, mode='w') as csv_result: # reset file
@@ -57,14 +59,14 @@ def batch(client, muni_nav, reference, queries, result, logs, free_client=None):
             if not os.path.exists(f"{logs}{city}"):
                 os.makedirs(f"{logs}{city}")
             filename = f"""{city}/{policy_type.replace('/', ' ')}_log.md"""
-            structured_response = chatbot_query(client=client, scraper=muni_nav, state_name="california", muni_name=city.lower(), query=query_ref[policy_type], free_client=free_client)
+            structured_response = chatbot_query(client=client, scraper=muni_nav, state_name="california", muni_name=city.lower(), query=query_ref[policy_type]["query"], free_client=free_client, search_terms=query_ref[policy_type]["search_terms"])
             answer = [city, policy_type, 'Y' if structured_response and (structured_response["binary_response"]) else 'N']
             answers.append(answer)
             with open(result, mode='a') as csv_result_file: # incremental updates
                 csv_result_file.write(','.join(answer) + '\n')
             os.replace("log.md", logs + filename) # save log
-            run_eval()
-        return answers, list(csv_reader)
+            evaluate(answers, reference_answers)
+        return answers, reference_answers
 
 def evaluate(results, reference):
     field_names = []
@@ -169,7 +171,7 @@ def evaluate(results, reference):
 def main():
     free_client = genai.Client(api_key=GEMINI_FREE_API_KEY)
     paid_client = genai.Client(api_key=GEMINI_PAID_API_KEY)
-    municode_nav = municode.MuniCodeCrawler()
+    municode_nav = municode.MuniCodeScraper()
     answer, reference = batch(paid_client, municode_nav, REFERENCE, QUERIES, RESULT, LOGS, free_client=free_client)
     evaluate(answer, reference)
     

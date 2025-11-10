@@ -6,5 +6,6 @@ __pycache__
 logs
 *log.md
 archive
-data
+datasets
+ord tables
 result

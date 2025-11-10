@@ -7,6 +7,7 @@ Authors: Chenghao Li
 Org: University of Toronto - School of Cities
 """
 
+import scrapers.scraper as scraper
 import scrapers.municode_scraper as municode
 import config.instruction as inst
 import config.general as general_args
@@ -43,6 +44,73 @@ class ResponseItem:
         self.response: str = response
         self.thoughts: str = thoughts
 
+
+class SourceResponse:
+    """
+    Query Response sources based on source schema
+
+    MUST MIRROR SOURCE_RESPONSE_SCHEMA FROM instruction.py
+    """
+
+    def __init__(self, source_url: str, page_name: str, relevant_quotation_from_source: str):
+        self.source_url: str = source_url
+        self.page_name: str = page_name
+        self.relevant_quotation_from_source: str = relevant_quotation_from_source
+    
+    @classmethod
+    def from_dict(cls, source: dict[str:str]):
+        return cls(**source)
+
+
+class ConditionalResponse:
+    """
+    Query Response types based on conditional responses
+
+    MUST MIRROR CONDITION_SCHEMA FROM instruction.py
+    """
+
+    def __init__(self, condition: str, conditioned_response: str):
+        self.condition: str = condition
+        self.conditioned_reponse: str = conditioned_response
+    
+    @classmethod
+    def from_dict(cls, source: dict[str:str]):
+        return cls(**source)
+
+class QueryResponse:
+    """
+    Query Response to store response answers based on response schema
+
+    MUST MIRROR RESPONSE_SCHEMA FROM instruction.py
+    """
+
+    def __init__(self, sources: list[SourceResponse], response_confidence: float|None=None, binary_response: bool|None=None, numeric_response: float|None=None, categorical_response: str|None=None, conditional_response: list[ConditionalResponse]|None=None, none_found: bool=False):
+        self.none_found: bool = none_found
+        self.sources: list[SourceResponse] = sources
+        self.response_confidence: float = response_confidence
+        if binary_response != None:
+            self.binary_response: bool = binary_response
+        if numeric_response != None:
+            self.numeric_response: float = numeric_response
+        if categorical_response != None:
+            self.categorical_response: str = categorical_response
+        if conditional_response != None:
+            self.conditional_response: list[ConditionalResponse] = conditional_response
+    
+    @classmethod
+    def from_dict(cls, source: dict[str:]):
+        params: dict[str:] = source.copy()
+
+        if "conditional_response" in source:
+            params["conditional_response"] = []
+
+            for response_case in source["conditional_response"]:
+                params["conditional_response"].append(ConditionalResponse.from_dict(response_case))
+        
+        params["sources"] = []
+        for ind_source in source["sources"]:
+            params["sources"].append(SourceResponse.from_dict(ind_source))
+        return cls(**params)
 
 def start_logging() -> None:
     with open(general_args.LOG_PATH, "w", encoding="utf-8") as f: # for testing purposes
@@ -138,10 +206,15 @@ def llm_query(client: genai.Client, contents: str|list[types.Content], config: t
 
         return result
     except ServerError as e:
-        log(f"\n\n#### ERROR OCCURED ({e}). RETRYING IN 10 SECONDS\n\n")
-        time.sleep(10)
-        log(f"#### RETRYING...\n\n")
-        return llm_query(client=client, contents=contents, config=config, model=model)
+        if attempt < general_args.LLM_ATTEMPT_LIMIT:
+            log(f"\n\n#### ERROR OCCURED ON ATTEMPT ({attempt}) ERROR: ({e}). RETRYING IN {general_args.LLM_ATTEMPT_DELAY} SECONDS\n\n")
+            time.sleep(general_args.LLM_ATTEMPT_DELAY)
+            log(f"#### RETRYING...\n\n")
+            return llm_query(client=client, contents=contents, config=config, model=model, attempt=attempt + 1)
+        else:
+            log(f"\n\n#### ERROR OCCURED ({e}). ATTEMPT LIMIT REACHED ({attempt}).\n\n")
+            exit()
+
 
 def join_list(element: list[str]|dict[str: str], seperator: str=", ") -> str:
     """
@@ -231,7 +304,19 @@ def search_term_generator(client: genai.Client, query: str) -> list[str]:
     search_terms: list[str] = [term["name"] for term in terms][:general_args.SEARCH_TERM_LIMIT]
     return search_terms
 
-def search_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, muni_name: str, query: str, free_client: genai.Client|None=None, search_terms: list[str]|None=None, visited: set[str]|None=None):
+def search_answerer(client: genai.Client, scraper: scraper.Scraper, muni_name: str, query: str, free_client: genai.Client|None=None, search_terms: list[str]|None=None, visited: set[str]|None=None):
+    """
+    Utilize scraper search to answer query
+
+    :param client: llm client
+    :param scraper: webscraper crawler
+    :param muni_name: municipality name
+    :param query: string query
+    :param free_client: optional free client to minimize api credit usage
+    :param search_terms: optional search terms to find context
+    :param visited: set containing the names of visited pages
+    :return: answer to query
+    """
     if not free_client:
         print("FREE CLIENT NOT FOUND. USING PAID CLIENT")
         free_client = client
@@ -256,9 +341,11 @@ def search_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, mun
                     context = scraper.scrape_text()
                     response = get_latest_response(answer(client=free_client, query=query, muni_name=muni_name, muni_url=muni_url, context=context))
                     if not "(NONE)" in response.response:
-                        return (structure(free_client, response.response))
+                        return QueryResponse.from_dict(structure(free_client, response.response))
                 else:
                     log(f"""## Already visited, going back...\n\n""")
+    # no answer found. need to move to named tuple or something b/c none_found is not in the schema
+    return QueryResponse(none_found=True, binary_response=False, sources=[], response_confidence=1)
         
 
 def closest(client: genai.Client, query: str, items: list[str]):
@@ -310,25 +397,23 @@ def chatbot_query(client: genai.Client, scraper: municode.MuniCodeCrawler, state
         munis = json.load(file)
     scraper.go(munis[state_name]["municipalities"][muni_name])
     search_answer = search_answerer(client, scraper, muni_name, query, free_client, search_terms)
-    if search_answer:
+    if search_answer and not search_answer.none_found:
         return search_answer
     traversal_answer = traversal_answerer(client, scraper, muni_name, query, free_client)
-    if traversal_answer:
+    if traversal_answer and not search_answer.none_found:
         return traversal_answer
-    return None
-
+    return QueryResponse(none_found=True, binary_response=False, sources=[], response_confidence=1)
     
 
 def main():
-    '''
-    municode_nav = municode.MuniCodeCrawler() # open crawler
+    municode_nav = municode.MuniCodeScraper() # open crawler
     clear_log()
     free_client = genai.Client(api_key=GEMINI_FREE_API_KEY)
     paid_client = genai.Client(api_key=GEMINI_PAID_API_KEY)
     state = "california"
     muni = "campbell"
     query = "Is there any mention of the implementation or use of a Just Cause Eviction policy? These policies may also be called or mention Retaliatory Evictions. This typically involves requiring landlords or property owners to have a valid reason to evict a tenant. They may also be called good cause eviction or for cause eviction, etc. True/False?"
-    search_terms = ["Just Cause", "Eviction Policy", "Retaliatory Eviction"]
+    search_terms = ["eviction", "Just cause eviction", "retaliatory evictions", "good cause eviction", "for cause eviction"]
     
     # manual input
     state = state or input("State: ").lower()
