@@ -4,7 +4,7 @@ MUNICODE POLICY CHATBOT
 Gets answer to policy questions based on municode using gemini.
 
 Authors: Chenghao Li
-Org: University of Toronto - School of Cities
+Org: Urban Displacement Project: UC Berkeley / University of Toronto
 """
 
 import scrapers.scraper as scraper
@@ -31,6 +31,9 @@ GEMINI_PAID_API_KEY = os.getenv('GEMINI_PAID') # google cloud api key
 GEMINI_FREE_API_KEY = os.getenv('GEMINI_FREE')
 
 class RelevanceItem:
+    """
+    Contains a name and it's relevance rating
+    """
     def __init__(self, name: str, relevance_rating: float):
         self.name: str = name
         self.relevance_rating: float = relevance_rating
@@ -40,6 +43,9 @@ class RelevanceItem:
 
 
 class ResponseItem:
+    """
+    LLM response item
+    """
     def __init__(self, response: str, thoughts: str=""):
         self.response: str = response
         self.thoughts: str = thoughts
@@ -113,6 +119,9 @@ class QueryResponse:
         return cls(**params)
 
 def start_logging() -> None:
+    """
+    Clears log and begins logging in log file
+    """
     with open(general_args.LOG_PATH, "w", encoding="utf-8") as f: # for testing purposes
         f.write(f"# LOG\n\n")
 
@@ -135,6 +144,12 @@ def clear_log() -> None:
     open(general_args.LOG_PATH, "w", encoding="utf-8").close()
 
 def get_latest_response(contents: list[types.Content]) -> ResponseItem:
+    """
+    Returns a ResponseItem for the latest response
+
+    :param contents: list of llm response contents
+    :return: response item with response and thoughts
+    """
     thoughts = ""
     response = ""
     for content in contents[-1].parts:
@@ -145,7 +160,17 @@ def get_latest_response(contents: list[types.Content]) -> ResponseItem:
     return ResponseItem(response, thoughts)
 
 
-def llm_query(client: genai.Client, contents: str|list[types.Content], config: types.GenerateContentConfig, model: str) -> list[types.Content]:
+def llm_query(client: genai.Client, contents: str|list[types.Content], config: types.GenerateContentConfig, model: str, attempt: int=1) -> list[types.Content]:
+    """
+    Prompts LLM
+
+    :param client: genai client
+    :param contents: prompt/content history
+    :param config: gemini config
+    :param model: llm model
+    :param attempt: current attempt number
+    :return: content history as a content list
+    """
     try:
         result: list[types.Content] = []
         if general_args.LOG_PROMPTS:
@@ -232,6 +257,14 @@ def join_list(element: list[str]|dict[str: str], seperator: str=", ") -> str:
     return result
 
 def run_sorter(client: genai.Client, names: list[str], query: str) -> list[RelevanceItem]:
+    """
+    LLM based sorting (super arbitrary)
+
+    :param client: genai client
+    :param names: names to sort
+    :param query: query to base relevancy sort off of
+    :return: list of RelevanceItems sorted from most relevant to least relevant
+    """
 
     result: list[RelevanceItem] = []
     names = list(names)
@@ -241,14 +274,12 @@ def run_sorter(client: genai.Client, names: list[str], query: str) -> list[Relev
             contents=[query]+names,
             config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY")).embeddings
     ]
-
-    
     embeddings_matrix = np.array(vectors)
     similarity_matrix = cosine_similarity(embeddings_matrix)
 
     log("### Relevance_Ratings:\n\n")
 
-    for i in range(1,len(names)+1):
+    for i in range(1, len(names) + 1):
         similarity = similarity_matrix[0,i]
         log("# context:\n")
         log(names[i-1]+ "\n")
@@ -261,6 +292,15 @@ def run_sorter(client: genai.Client, names: list[str], query: str) -> list[Relev
     return result
 
 def answer(client: genai.Client, query: str, muni_name: str, muni_url: str, context: str) -> list[types.Content]:
+    """
+    Use answerer prompt to generate response based on context
+
+    :param client: genai client
+    :param query: general query
+    :param muni_name: name of municipality (required to ensure llm stays within the specified municipality)
+    :param context: text contexr in markdown format
+    :return: returns 
+    """
     log("## ANSWERING\n\n")
     prompt: str = prompts.RESPONSE_QUERY_TEMPLATE.format(
         muni_name=muni_name,
@@ -304,6 +344,35 @@ def search_term_generator(client: genai.Client, query: str) -> list[str]:
     search_terms: list[str] = [term["name"] for term in terms][:general_args.SEARCH_TERM_LIMIT]
     return search_terms
 
+def closest(client: genai.Client, query: str, items: list[str]):
+    """
+    Get closest string to match query
+
+    :param client: llm client
+    :param query: query to match
+    :query items: string items
+    """
+    items = list(items)
+    vectors = [
+        np.array(e.values) for e in client.models.embed_content(
+            model="gemini-embedding-001",
+            contents=[query]+items,
+            config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY")).embeddings
+    ]
+
+    
+    embeddings_matrix = np.array(vectors)
+    similarity_matrix = cosine_similarity(embeddings_matrix)
+
+    max = float('-inf')
+    closest_item = items[0]
+    for i in range(1,len(items)+1):
+        similarity = similarity_matrix[0,i]
+        if similarity>max:
+            max = similarity
+            closest_item = items[i-1]
+    return closest_item
+
 def search_answerer(client: genai.Client, scraper: scraper.Scraper, muni_name: str, query: str, free_client: genai.Client|None=None, search_terms: list[str]|None=None, visited: set[str]|None=None):
     """
     Utilize scraper search to answer query
@@ -346,39 +415,14 @@ def search_answerer(client: genai.Client, scraper: scraper.Scraper, muni_name: s
                     log(f"""## Already visited, going back...\n\n""")
     # no answer found. need to move to named tuple or something b/c none_found is not in the schema
     return QueryResponse(none_found=True, binary_response=False, sources=[], response_confidence=1)
-        
-
-def closest(client: genai.Client, query: str, items: list[str]):
-    items = list(items)
-    vectors = [
-        np.array(e.values) for e in client.models.embed_content(
-            model="gemini-embedding-001",
-            contents=[query]+items,
-            config=types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY")).embeddings
-    ]
-
-    
-    embeddings_matrix = np.array(vectors)
-    similarity_matrix = cosine_similarity(embeddings_matrix)
-
-    max = float('-inf')
-    closest_item = items[0]
-    for i in range(1,len(items)+1):
-        similarity = similarity_matrix[0,i]
-        if similarity>max:
-            max = similarity
-            closest_item = items[i-1]
-    return closest_item
     
 
-def traversal_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, query: str):
+def traversal_answerer(client: genai.Client, scraper: scraper.Scraper, query: str):
     """
-    TODO: title section name sorting w/ sorter, then scrape and query for answer (CL)
+    Iteratively recurse through municipal page to find relevant document, then query llm.
+
+    TODO: not finished yet :/
     """
-    states = scraper.scrape_states()
-    scraper.go(states[closest(client,query,states.keys())])
-    muni = scraper.scrape_munis()
-    scraper.go(muni[closest(client,query,muni.keys())])
     titles = scraper.scrape_titles()
     scraper.go(titles[closest(client,query,titles.keys())])
     chapters = scraper.scrape_chapters()
@@ -387,11 +431,11 @@ def traversal_answerer(client: genai.Client, scraper: municode.MuniCodeCrawler, 
         articles = scraper.scrape_articles()
         scraper.go(articles[closest(client,query,articles.keys())])
         return scraper.scrape_text()
-    return "articles not found"
+    return QueryResponse(none_found=True, binary_response=False, sources=[], response_confidence=1)
 
     
 
-def chatbot_query(client: genai.Client, scraper: municode.MuniCodeCrawler, state_name: str, muni_name: str, query: str, free_client: genai.Client|None=None, search_terms: list[str]|None=None):
+def chatbot_query(client: genai.Client, scraper: scraper.Scraper, state_name: str, muni_name: str, query: str, free_client: genai.Client|None=None, search_terms: list[str]|None=None):
     munis = {}
     with open(general_args.MUNICODE_MUNIS, 'r') as file:
         munis = json.load(file)
@@ -420,14 +464,7 @@ def main():
     muni = muni or input("Municipality: ").lower()
     query = query or input("Question: ")
 
-    chatbot_query(client=paid_client, scraper=municode_nav, state_name=state, muni_name=muni, query=query, free_client=free_client)
-    '''
-    municode_nav = municode.MuniCodeCrawler() # open crawler
-    free_client = genai.Client(api_key=GEMINI_FREE_API_KEY)
-    query = "Is there any mention of the implementation or use of a Just Cause Eviction policy? These policies may also be called or mention Retaliatory Evictions. This typically involves requiring landlords or property owners to have a valid reason to evict a tenant. They may also be called good cause eviction or for cause eviction, etc. True/False?"
-    print(traversal_answerer(free_client,municode_nav,query))
-    
-
+    chatbot_query(client=paid_client, scraper=municode_nav, state_name=state, muni_name=muni, query=query, free_client=free_client, search_terms=search_terms)
     
 
 
