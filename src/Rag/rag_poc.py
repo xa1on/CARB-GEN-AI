@@ -29,10 +29,11 @@ genai.configure(api_key=GOOGLE_API_KEY)
 print("✓ Gemini API configured successfully!")
 
 
+
 # -- PHASE 1: LOAD AND CHUNK DOCUMENT ---
 
 # specific the markdown file path
-file_path = "../../log.md" # Using chatbot output
+file_path = "log.md" # Using chatbot output
 
 # Check if the file exists
 if not os.path.exists(file_path):
@@ -84,7 +85,7 @@ retriever = vectorstore.as_retriever(
 # Create Gemini LLM
 print(f"\n Initializing Gemini...")
 llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash",
+    model="models/gemini-pro-latest",
     google_api_key = GOOGLE_API_KEY,
     temperature=0.3 # Lower= more deterministic answers
 )
