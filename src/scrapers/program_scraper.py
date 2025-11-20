@@ -1,7 +1,7 @@
 import time
 import json
-from googlesearch import search
 import requests
+from urllib import parse
 from bs4 import BeautifulSoup
 
 
@@ -16,6 +16,32 @@ from sklearn.metrics.pairwise import cosine_similarity
 load_dotenv()
 GEMINI_PAID_API_KEY = os.getenv('GEMINI_PAID') # google cloud api key
 GEMINI_FREE_API_KEY = os.getenv('GEMINI_FREE')
+
+class GoogleClient:
+    def __init__(self):
+        self.user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        self.headers = {
+            "User-Agent": self.user_agent,
+            "Accept-Language": "en-US,en;q=0.5"
+        }
+
+    def send_query(self, query):
+        session = requests.Session()
+        res = session.get(
+            f"https://www.google.com/search?hl=en&q={parse.quote(query)}",
+            headers=self.headers
+        )
+        return res.text
+
+    def get_urls(self, html):
+        soup = BeautifulSoup(html, "html.parser")
+        urls = []
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if href.startswith("/url?q="):
+                url = parse.unquote(href.split("/url?q=")[1].split("&")[0])
+                urls.append(url)
+        return urls
 
 def make_prompts(client: genai.Client, data: dict, names: list[str], query: str) -> list[str]:
     prompts: list[str] = []
@@ -37,10 +63,10 @@ def make_prompts(client: genai.Client, data: dict, names: list[str], query: str)
     return prompts
 
 def google_top3(prompt):
+    client = GoogleClient()
     try:
-        results = list(search(prompt,num_results=3))
-        print(111,results)
-        return results
+        results = client.get_urls(client.send_query(prompt))
+        return results[0:3]
     except Exception as e:
         print(f"Error during search: {e}")
         return []
