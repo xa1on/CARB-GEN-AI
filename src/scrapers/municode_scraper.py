@@ -9,21 +9,12 @@ Authors: Chenghao Li
 Org: Urban Displacement Project: UC Berkeley / University of Toronto
 """
 
-import time
-import json
-from bs4 import BeautifulSoup, Tag
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
+from .scraper import *
 
 
 
 
-SNAPSHOTS_DIR = "snapshots"
 LOADING_CSS_SELECTOR = ".fa-2x"
-TIMEOUT = 120
 INDEX_CSS = "a[class=index-link]"
 CODE_CSS = "a[class=toc-item-heading]"
 BODY_CSS = "#codesContent"
@@ -32,12 +23,6 @@ SEARCH_CSS = "#headerSearch"
 SEARCH_IN_SEARCH_CSS = "#searchBox"
 SEARCH_RESULT_CSS = "div[class=search-result-body]"
 SEARCH_RESULT_COUNT_CSS = "h3[class=text-light]"
-
-DEPTH: dict[str: int] = {
-    "Titles": 0,
-    "Chapters": 1,
-    "Articles": 2
-}
 
 def stripped_splitter(text: str, separator=' ') -> str:
     # split by newline and strip leading and tailing spaces
@@ -59,35 +44,8 @@ class SearchResult:
     def __repr__(self) -> str:
         return f"href={self.href}, name={self.name}, chapter_name={self.chapter_name}, related_text={self.related_text}"
 
-class MuniCodeCrawler:
+class MuniCodeScraper(Scraper):
     home_url: str = "https://library.municode.com"
-    def __init__(self, starting_url: str=home_url):
-        """
-        Create new MuniCodeCrawler Object
-
-        :param self:
-        :return: returns new object
-        """
-        chrome_options = webdriver.ChromeOptions()
-
-        chrome_options.add_argument("--log-level=1")
-
-        self.browser = webdriver.Chrome(options = chrome_options)
-        self.wait= WebDriverWait(self.browser, TIMEOUT)
-
-
-        self.browser.set_window_size(1024, 1024)
-        self.go(starting_url)
-
-    def wait_visibility(self, CSS):
-        self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, CSS)))
-        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
-        return self
-    
-    def wait_invisibility(self, CSS):
-        self.wait.until(EC.invisibility_of_element_located((By.CSS_SELECTOR, CSS)))
-        self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
-        return self
     
     def go(self, url):
         """
@@ -147,8 +105,7 @@ class MuniCodeCrawler:
             name = link.text.replace('\n', '').replace('*', '')
             related_text = stripped_splitter(search_result.find("div", {"ng-bind-html": "::hit.ContentFragment"}).text)
             directories = search_result.select_one("ol.breadcrumb").select("a")
-            chapter_name = stripped_splitter(directories[-1].text).replace('*', '')
-            result[name] = SearchResult(href=link["href"], name=chapter_name, chapter_name=chapter_name, related_text=related_text)
+            result[related_text] = SearchResult(href=link["href"], name=name, chapter_name=stripped_splitter(directories[-1].text).replace('*', ''), related_text=related_text)
         return result
 
     def scrape_index_link(self) -> dict[str: str]:
@@ -192,15 +149,6 @@ class MuniCodeCrawler:
     
     def scrape_munis(self) -> dict[str: str]:
         return self.scrape_index_link()
-
-    def scrape_titles(self) -> dict[str: str]:
-        return self.scrape_codes(DEPTH["Titles"])
-
-    def scrape_chapters(self) -> dict[str: str]:
-        return self.scrape_codes(DEPTH["Chapters"])
-
-    def scrape_articles(self) -> dict[str: str]:
-        return self.scrape_codes(DEPTH["Articles"])
 
     def scrape_text(self) -> str:
         """
@@ -318,7 +266,7 @@ def export_munis() -> None:
 
     format: {[state]: {link: [url], municipalities: {[muni name]: [url]}}}
     """
-    muni_scraper = MuniCodeCrawler()
+    muni_scraper = MuniCodeScraper()
     result: dict[str: dict[str: str|dict[str: str]]] = {}
     for state, state_url in muni_scraper.scrape_states().items():
         result[state] = {
@@ -332,17 +280,17 @@ def export_munis() -> None:
         json.dump(result, f)
 
 def test_text_scrape():
-    muni_scraper = MuniCodeCrawler("https://library.municode.com/ca/milpitas/codes/code_of_ordinances?nodeId=TITXIZOPLAN_CH10ZO_S11SPPLAR_XI-10-11.01PUIN")
+    muni_scraper = MuniCodeScraper("https://library.municode.com/ca/milpitas/codes/code_of_ordinances?nodeId=TITXIZOPLAN_CH10ZO_S11SPPLAR_XI-10-11.01PUIN")
     muni_scraper.scrape_text()
 
 def test_search():
-    muni_scraper = MuniCodeCrawler("https://library.municode.com/ca/campbell/codes/code_of_ordinances")
+    muni_scraper = MuniCodeScraper("https://library.municode.com/ca/campbell/codes/code_of_ordinances")
     muni_scraper.search("Eviction")
     print(muni_scraper.scrape_search())
 
 
 def main():
-    muni_scraper = MuniCodeCrawler()
+    muni_scraper = MuniCodeScraper()
     states = muni_scraper.scrape_states() # gets a dict of states
     print(states)
     muni_scraper.go(states["california"]) # goes to california via the results of states

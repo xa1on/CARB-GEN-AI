@@ -12,7 +12,7 @@ from selenium import webdriver
 
 CSV_FILE = "data/ord tables/2025 ARB Policy Map Ordinance Table - Los Angeles.csv"
 LINK_COLUMN = "Source"
-LOG_FILE = "result/log.txt"
+LOG_FILE = "result/broken links/log.txt"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0",
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
