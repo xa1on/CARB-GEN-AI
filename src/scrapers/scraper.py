@@ -60,17 +60,17 @@ class Scraper:
         self.browser.set_window_size(1024, 1024)
         self.go(starting_url)
 
-    def wait_visibility(self, CSS):
+    def wait_visibility(self, CSS: str):
         self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, CSS)))
         self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
         return self
     
-    def wait_invisibility(self, CSS):
+    def wait_invisibility(self, CSS: str):
         self.wait.until(EC.invisibility_of_element_located((By.CSS_SELECTOR, CSS)))
         self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
         return self
     
-    def go(self, url):
+    def go(self, url: str):
         """
         Goes to specified url and waits for loading to finish 
 
@@ -81,7 +81,7 @@ class Scraper:
         #self.wait_invisibility()
         return self
 
-    def search(self, search_term):
+    def search(self, search_term: str):
         """
         Searches specified search term in municode
 

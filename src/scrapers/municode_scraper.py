@@ -26,7 +26,7 @@ SEARCH_RESULT_COUNT_CSS = "h3[class=text-light]"
 class MuniCodeScraper(Scraper):
     home_url: str = "https://library.municode.com"
     
-    def go(self, url):
+    def go(self, url: str):
         """
         Goes to specified url and waits for loading to finish 
 
@@ -37,7 +37,7 @@ class MuniCodeScraper(Scraper):
         self.wait_invisibility(LOADING_CSS_SELECTOR)
         return self
 
-    def search(self, search_term):
+    def search(self, search_term: str):
         """
         Searches specified search term in municode
 
