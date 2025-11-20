@@ -21,3 +21,11 @@ Response:
 """
 
 SEARCHER_QUERY_TEMPLATE = """Question: {query}, List of {n} search terms:"""
+
+VERIFICATION_QUERY_TEMPLATE = """You previously answered this question about {muni_name}: Question: {query} Your answer: {original_response} Document: {context}
+ Now, carefully review your answer:
+1. Do those quotes actually support your conclusion?
+2. Did you interpret the policy correctly?
+ Respond with only:
+- (VERIFIED) if your answer is correct and well-supported
+ - (REJECTED) if you made an error or the evidence doesn't support your conclusion"""
