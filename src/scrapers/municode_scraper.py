@@ -276,17 +276,17 @@ def main():
     muni = muni_scraper.scrape_munis() # gets a dict of municipalities in the state of california
     print(muni)
     muni_scraper.go(muni["tracy"]) # goes to tracy
-    titles = muni_scraper.scrape_titles() # grabs all the titles for tracy
+    titles = muni_scraper.scrape_codes(depth=0) # grabs all the titles for tracy
     print(titles)
     muni_scraper.go(titles["Title 5 - SANITATION AND HEALTH"]) # scrapes the chapters in title 5
-    more_chapters = muni_scraper.scrape_chapters()
+    more_chapters = muni_scraper.scrape_codes(depth=1)
     print(more_chapters)
     muni_scraper.go(titles["Title 4 - PUBLIC WELFARE, MORALS AND CONDUCT"]) # access title 4 for tracy
-    chapters = muni_scraper.scrape_chapters() # scrapes the chapters in title 4
+    chapters = muni_scraper.scrape_codes(depth=2) # scrapes the chapters in title 4
     print(chapters)
     muni_scraper.go(chapters["Chapter 4.12 - MISCELLANEOUS REGULATIONS"]) # access chapter
     if (muni_scraper.contains_child()): # checks if current page has any children
-        articles = muni_scraper.scrape_articles() # scrapes the articles
+        articles = muni_scraper.scrape_codes(depth=3) # scrapes the articles
         print(articles)
         muni_scraper.go(articles["Article 14. - Soliciting and Aggressive Solicitation"]) # access chapter's article
         print(muni_scraper.scrape_text()) # scrapes all text from article

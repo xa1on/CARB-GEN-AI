@@ -8,8 +8,7 @@ Notes: something really similar should be done with codelibrary.amlegal.com and 
 Authors: Chenghao Li
 Org: Urban Displacement Project: UC Berkeley / University of Toronto
 """
-
-import time
+import re
 import json
 from bs4 import BeautifulSoup, Tag
 from selenium import webdriver
