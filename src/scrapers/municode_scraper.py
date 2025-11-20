@@ -23,27 +23,6 @@ SEARCH_CSS = "#headerSearch"
 SEARCH_IN_SEARCH_CSS = "#searchBox"
 SEARCH_RESULT_CSS = "div[class=search-result-body]"
 SEARCH_RESULT_COUNT_CSS = "h3[class=text-light]"
-
-def stripped_splitter(text: str, separator=' ') -> str:
-    # split by newline and strip leading and tailing spaces
-    result = ""
-    split = text.split('\n')
-    for text_line in split:
-        stripped = text_line.strip()
-        if stripped:
-            result += separator + stripped
-    return result[len(separator):]
-
-class SearchResult:
-    def __init__(self, href: str, name: str, chapter_name: str, related_text: str):
-        self.href = href
-        self.name = name
-        self.chapter_name = chapter_name
-        self.related_text = related_text
-    
-    def __repr__(self) -> str:
-        return f"href={self.href}, name={self.name}, chapter_name={self.chapter_name}, related_text={self.related_text}"
-
 class MuniCodeScraper(Scraper):
     home_url: str = "https://library.municode.com"
     
