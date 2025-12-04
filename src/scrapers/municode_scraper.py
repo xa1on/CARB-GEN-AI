@@ -9,7 +9,7 @@ Authors: Chenghao Li
 Org: Urban Displacement Project: UC Berkeley / University of Toronto
 """
 
-from scraper import *
+from .scraper import *
 
 
 

@@ -40,6 +40,9 @@ class RelevanceItem:
     
     def __str__(self) -> str:
         return f"name:{self.name}, relevance_rating:{self.relevance_rating}"
+    
+    def __repr__(self) -> str:
+        return str(self)
 
 
 class ResponseItem:
@@ -281,14 +284,12 @@ def run_sorter(client: genai.Client, names: list[str], query: str) -> list[Relev
 
     for i in range(1, len(names) + 1):
         similarity = similarity_matrix[0,i]
-        log("# context:\n")
-        log(names[i-1]+ "\n")
-        log("# rating:\n")
-        log(str(similarity) + "\n\n")
-        if similarity<general_args.RELEVANCE_THRESHOLD:
+        if similarity < general_args.RELEVANCE_THRESHOLD:
             continue
         result.append(RelevanceItem(name=names[i-1],relevance_rating=similarity))
+    result.sort(key=lambda x: x.relevance_rating, reverse=True)
 
+    log(f"{result}\n\n")
     return result
 
 def answer(client: genai.Client, query: str, muni_name: str, muni_url: str, context: str) -> list[types.Content]:
@@ -410,7 +411,7 @@ def search_answerer(client: genai.Client, scraper: scraper.Scraper, muni_name: s
                     context = scraper.scrape_text()
                     response = get_latest_response(answer(client=free_client, query=query, muni_name=muni_name, muni_url=muni_url, context=context))
                     if not "(NONE)" in response.response:
-                        structured = (structure(free_client, response.response))
+                        structured = structure(free_client, response.response)
                         
                         if "sources" in structured and structured["sources"]:
                             quotes_verified, failed_quotes = verify_quotes_exist(context, structured["sources"])
@@ -424,16 +425,10 @@ def search_answerer(client: genai.Client, scraper: scraper.Scraper, muni_name: s
                             
                             if llm_verified:
                                 log("Answer passed both verification steps\n\n")
-                                return structured  
+                                return QueryResponse.from_dict(structured)
                             else:
                                 log("Answer rejected, LLM could not verify its own answer\n\n")
                                 log("Continuing search for better evidence\n\n")
-                                continue 
-                        else:
-                            log("No sources provided in response\n\n")
-                            log("Continuing search\n\n")
-                            continue
-                        return QueryResponse.from_dict(structure(free_client, response.response))
                 else:
                     log(f"""## Already visited, going back...\n\n""")
     # no answer found. need to move to named tuple or something b/c none_found is not in the schema
@@ -481,7 +476,7 @@ def verify_quotes_exist(context: str, sources: list[dict]) -> tuple[bool, list[s
     :param sources: List of source objects with relevant_quotation_from_source
     :return: Tuple of (all_verified: bool, failed_quotes: list[str])
     """
-    log("verifying quotes")
+    log("### Verifying quotes:\n\n")
     
     failed_quotes = []
     
@@ -497,19 +492,16 @@ def verify_quotes_exist(context: str, sources: list[dict]) -> tuple[bool, list[s
         normalized_context = " ".join(context.split())
         
         # Check if quote exists in context
-        if normalized_quote.lower() in normalized_context.lower():
-            log(f"Quote {i+1} verified")
-            log(f"Quote: {quote[:100]}{'...' if len(quote) > 100 else ''}")
-        else:
-            log(f"Quote {i+1} not found in source text")
-            log(f"Missing quote: {quote[:200]}{'...' if len(quote) > 200 else ''}")
+        if not normalized_quote.lower() in normalized_context.lower():
+            log(f"Quote {i+1} not found in source text\n\n")
+            log(f"Missing quote: {quote[:200]}{'...' if len(quote) > 200 else ''}\n\n")
             failed_quotes.append(quote)
     
     if failed_quotes:
-        log(f"Verification failed: {len(failed_quotes)} quote(s) could not be verified")
+        log(f"Verification failed: {len(failed_quotes)} quote(s) could not be verified\n\n")
         return False, failed_quotes
     else:
-        log(f"All {len(sources)} quote(s) verified")
+        log(f"All {len(sources)} quote(s) verified\n\n")
         return True, []
     
 # Function asking LLM to double check its answer
@@ -538,8 +530,8 @@ def main():
     paid_client = genai.Client(api_key=GEMINI_PAID_API_KEY)
     state = "california"
     muni = "campbell"
-    query = "Is there any mention of the implementation or use of a Just Cause Eviction policy? These policies may also be called or mention Retaliatory Evictions. This typically involves requiring landlords or property owners to have a valid reason to evict a tenant. They may also be called good cause eviction or for cause eviction, etc. True/False?"
-    search_terms = ["eviction", "Just cause eviction", "retaliatory evictions", "good cause eviction", "for cause eviction"]
+    query = "Is there any mention of the implementation or use of a Just Cause Eviction policy? These policies may also mention Retaliatory Evictions or be called a Retaliatory Eviction policy. They may also be called good cause eviction or for cause eviction, etc. This typically involves requiring landlords or property owners to have a valid reason to evict a tenant. A landlord must have a legitimate, legally recognized reason to evict a tenant, especially if they have lived in the unit for a certain amount of time (usually at least 12 months). The ordinance may include relocation assistance for tenants evicted without cause. Ensure the policy applies to most types of residential properties, not just mobile homes/parks. If you are given a document specific to mobile homes/parks, the answer is not given in that document, so return none/ignore. Answer: Yes/No/None?"
+    search_terms = ["Eviction", "Just cause eviction", "retaliatory evictions", "good cause eviction", "for cause eviction"]
     
     # manual input
     state = state or input("State: ").lower()
