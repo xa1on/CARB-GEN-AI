@@ -9,7 +9,7 @@ Authors: Chenghao Li
 Org: Urban Displacement Project: UC Berkeley / University of Toronto
 """
 
-from .scraper import *
+from scraper import *
 
 
 
@@ -23,6 +23,9 @@ SEARCH_CSS = "#headerSearch"
 SEARCH_IN_SEARCH_CSS = "#searchBox"
 SEARCH_RESULT_CSS = "div[class=search-result-body]"
 SEARCH_RESULT_COUNT_CSS = "h3[class=text-light]"
+CHANGES_BUTTON_XPATH = "//button[@class='btn btn-icon-toggle codes-action-menu-btn'][@data-actionid='compare']"
+CHANGES_DATE_XPATH = "//p[@data-ng-bind]"
+
 class MuniCodeScraper(Scraper):
     home_url: str = "https://library.municode.com"
     
@@ -120,7 +123,7 @@ class MuniCodeScraper(Scraper):
         return result
     
     """
-    scrape states and cities are redundant but good for readability
+    scrape states and munis are redundant but good for readability
     """
 
     def scrape_states(self) -> dict[str: str]:
@@ -239,6 +242,15 @@ class MuniCodeScraper(Scraper):
         #     f.write(result)
         return result
 
+    def scrape_changes(self) -> list[str]:
+        self.wait_visibility(BODY_CSS)
+        self.wait_visibility(TEXT_CSS)
+        self.browser.find_element(By.XPATH, CHANGES_BUTTON_XPATH).click()
+        self.wait.until(EC.visibility_of_element_located((By.XPATH, CHANGES_DATE_XPATH)))
+        return [element.text for element in self.browser.find_elements(By.XPATH, CHANGES_DATE_XPATH)]
+        
+
+
 def export_munis() -> None:
     """
     Exports all available municipalities in municode into a json file
@@ -267,6 +279,9 @@ def test_search():
     muni_scraper.search("Eviction")
     print(muni_scraper.scrape_search())
 
+def test_changes():
+    muni_scraper = MuniCodeScraper("https://library.municode.com/ca/milpitas/codes/code_of_ordinances?nodeId=TITXIZOPLAN_CH10ZO_S11SPPLAR_XI-10-11.01PUIN")
+    print(muni_scraper.scrape_changes())
 
 def main():
     muni_scraper = MuniCodeScraper()
@@ -294,4 +309,4 @@ def main():
 
 
 if __name__ == "__main__":
-    test_search()
+    test_changes()
