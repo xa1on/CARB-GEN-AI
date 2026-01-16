@@ -8,14 +8,20 @@ Notes: something really similar should be done with codelibrary.amlegal.com and 
 Authors: Chenghao Li
 Org: Urban Displacement Project: UC Berkeley / University of Toronto
 """
+import os
 import re
 import json
+from dataclasses import dataclass
 from bs4 import BeautifulSoup, Tag
 from selenium import webdriver
+
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+
 
 SNAPSHOTS_DIR = "snapshots"
 TIMEOUT = 120
@@ -30,15 +36,37 @@ def stripped_splitter(text: str, separator=' ') -> str:
             result += separator + stripped
     return result[len(separator):]
 
-class SearchResult:
-    def __init__(self, href: str, name: str, chapter_name: str, related_text: str):
-        self.href = href
-        self.name = name
-        self.chapter_name = chapter_name
-        self.related_text = related_text
+@dataclass
+class Date:
+    month: int
+    day: int
+    year: int
+
+    @classmethod
+    def from_string(cls, inp: str, sep: str='/'):
+        month, day, year = inp.split(sep)
+        return cls(int(month), int(day), int(year))
     
-    def __repr__(self) -> str:
-        return f"href={self.href}, name={self.name}, chapter_name={self.chapter_name}, related_text={self.related_text}"
+    def to_string(self):
+        return f"{self.month}/{self.day}/{self.year}"
+    
+    def __eq__(self, other):
+        if self.month == other.month and self.day == other.day and self.year == other.year:
+            return True
+    
+    def __lt__(self, other):
+        if self.year < other.year or (self.year == other.year and (self.month < other.month or (self.month == other.month and self.day < other.day))):
+            return True
+    
+    def __gt__(self, other):
+        return other < self
+
+@dataclass
+class SearchResult:
+    href: str
+    name: str
+    chapter_name: str
+    related_text: str
 
 class Scraper:
     home_url: str = "https://library.municode.com"
@@ -50,10 +78,9 @@ class Scraper:
         :return: returns new object
         """
         chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_argument("--log-level=3")
 
-        chrome_options.add_argument("--log-level=1")
-
-        self.browser = webdriver.Chrome(options = chrome_options)
+        self.browser = webdriver.Chrome(options=chrome_options)
         self.wait= WebDriverWait(self.browser, TIMEOUT)
 
 

@@ -10,7 +10,7 @@ Org: Urban Displacement Project: UC Berkeley / University of Toronto
 """
 
 from .scraper import *
-
+import time
 
 
 
@@ -23,8 +23,8 @@ SEARCH_CSS = "#headerSearch"
 SEARCH_IN_SEARCH_CSS = "#searchBox"
 SEARCH_RESULT_CSS = "div[class=search-result-body]"
 SEARCH_RESULT_COUNT_CSS = "h3[class=text-light]"
-CHANGES_BUTTON_XPATH = "//button[@class='btn btn-icon-toggle codes-action-menu-btn'][@data-actionid='compare']"
-CHANGES_DATE_XPATH = "//p[@data-ng-bind]"
+PREVIOUS_VERSIONS_XPATH = "//button[@class='btn btn-primary btn-flat']"
+VERSION_BUTTON_XPATH = "//button[@class='btn btn-flat ink-reaction'][@ng-click='vm.jobClick(job)']"
 
 class MuniCodeScraper(Scraper):
     home_url: str = "https://library.municode.com"
@@ -139,8 +139,6 @@ class MuniCodeScraper(Scraper):
         :param self:
         :return: string of the output in markdown format
         """
-        self.wait_visibility(BODY_CSS)
-        self.wait_visibility(TEXT_CSS)
         def text_selector(tag):
             # only select text with h2, h3, p, table tags
             return tag.name == "h2" or tag.name == "h3" or tag.name == "p" or tag.name == "table" or (tag.name == "div" and tag.has_attr("class") and tag.get("class")[0] == "footnote-content")
@@ -153,8 +151,12 @@ class MuniCodeScraper(Scraper):
             return tag.name == "b" or (tag.name == "span" and tag.has_attr("class") and tag.get("class")[0] == "bold")
 
         result: str = ""
-
-        text_block = self.soup.select_one("ul.chunks.list-unstyled.small-padding") # contains the text
+        self.wait_visibility(BODY_CSS)
+        self.wait_visibility(TEXT_CSS)
+        text_block = None
+        while not text_block:
+            self.wait_visibility(TEXT_CSS)
+            text_block = self.soup.select_one(TEXT_CSS) # contains the text
         bolds = text_block.find_all(bold_text_selector)
         for bold in bolds:
             bold.replace_with(f"**{stripped_splitter(bold.text)}**")
@@ -242,12 +244,59 @@ class MuniCodeScraper(Scraper):
         #     f.write(result)
         return result
 
-    def scrape_changes(self) -> list[str]:
-        self.wait_visibility(BODY_CSS)
-        self.wait_visibility(TEXT_CSS)
-        self.browser.find_element(By.XPATH, CHANGES_BUTTON_XPATH).click()
-        self.wait.until(EC.visibility_of_element_located((By.XPATH, CHANGES_DATE_XPATH)))
-        return [element.text for element in self.browser.find_elements(By.XPATH, CHANGES_DATE_XPATH)]
+    def scrape_changes(self, stop: Date|None=None, max_dates: int|None=None) -> list[str]:
+        result = []
+        def wait_xpath(xpath: str) -> None:
+            self.wait.until(EC.visibility_of_element_located((By.XPATH, xpath)))
+        visited = set()
+        none_found = True
+        prev = None
+        prev_date = None
+        while none_found:
+            none_found = False
+            self.wait_visibility(TEXT_CSS)
+            wait_xpath(PREVIOUS_VERSIONS_XPATH)
+            # previous version button is super inconsistent for some reason
+            found_options = []
+            while not found_options:
+                self.browser.execute_script("arguments[0].click();", self.browser.find_element(By.XPATH, PREVIOUS_VERSIONS_XPATH))
+                time.sleep(0.1)
+                found_options = self.browser.find_elements(By.XPATH, VERSION_BUTTON_XPATH)
+                if not found_options:
+                    time.sleep(0.1)
+            
+            for option in self.browser.find_elements(By.XPATH, VERSION_BUTTON_XPATH):
+                current_name = option.text
+                if not len(visited):
+                    visited.add(current_name)
+                    parts = current_name.split(' ')
+                    date = Date.from_string(parts[0])
+                    if stop and date < stop:
+                        return result
+                    prev = self.scrape_text()
+                    prev_date = date
+                elif current_name not in visited:
+                    none_found = True
+                    visited.add(current_name)
+                    self.browser.execute_script("arguments[0].click();", option)
+                    parts = current_name.split(' ')
+                    date = Date.from_string(parts[0])
+                    if stop and date < stop:
+                        return result
+                    current = self.scrape_text()
+                    if current != prev:
+                        result.append(prev_date)
+                        if max_dates and len(result) == max_dates:
+                            # return result if reach max results
+                            return result
+                    prev = current
+                    prev_date = date
+                    break
+        return result
+                
+
+
+        
         
 
 
@@ -280,8 +329,8 @@ def test_search():
     print(muni_scraper.scrape_search())
 
 def test_changes():
-    muni_scraper = MuniCodeScraper("https://library.municode.com/ca/milpitas/codes/code_of_ordinances?nodeId=TITXIZOPLAN_CH10ZO_S11SPPLAR_XI-10-11.01PUIN")
-    print(muni_scraper.scrape_changes())
+    muni_scraper = MuniCodeScraper("https://library.municode.com/ca/milpitas/codes/code_of_ordinances/478569?nodeId=TITIIBURE_CH6ELCO")
+    print(muni_scraper.scrape_changes(stop=Date(1,1,2022)))
 
 def main():
     muni_scraper = MuniCodeScraper()
