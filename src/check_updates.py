@@ -22,7 +22,7 @@ def check(agent: municode_scraper.MuniCodeScraper, city, county, policy_type, ex
     if "library.municode.com" not in link:
         return False
     agent.go(link)
-    log(f"Checking: {city}: {policy_type} - {number}\n")
+    # log(f"Checking: {city}: {policy_type} - {number}\n")
     result = agent.scrape_changes(stop=municode_scraper.Date.from_string(date_checked), max_dates=1)
     if len(result):
         return result
@@ -40,7 +40,7 @@ def check_muni(csv_inp: str, agent: municode_scraper.MuniCodeScraper, muni: str,
                 if checking:
                     log(f"REQUIRES UPDATE: {line[0]}: {line[2]} - {line[4]} ({checking[0]})\n")
 
-def check_all (csv_inp: str, agent: municode_scraper.MuniCodeScraper, override_date: municode_scraper.Date|None=None):
+def check_all(csv_inp: str, agent: municode_scraper.MuniCodeScraper, override_date: municode_scraper.Date|None=None):
     with open(csv_inp, mode='r', encoding="utf8") as file:
         csv_read = csv.reader(file)
         for line in csv_read:
@@ -51,10 +51,21 @@ def check_all (csv_inp: str, agent: municode_scraper.MuniCodeScraper, override_d
                 if checking:
                     log(f"REQUIRES UPDATE: {line[0]}: {line[2]} - {line[4]} ({checking[0]})\n")
 
-if __name__ == "__main__":
-    clear()
+def run_all():
     agent = municode_scraper.MuniCodeScraper()
-    date_override = municode_scraper.Date.from_string("1/1/2024")
+    
+    date_override = None # municode_scraper.Date.from_string("1/1/2024")
+
+    check_all(INPUT_CSV, agent, override_date=date_override)
+
+def run_muni():
+    agent = municode_scraper.MuniCodeScraper()
+    
+    date_override = None # municode_scraper.Date.from_string("1/1/2024")
 
     municipality = input("CITY TO CHECK: ")
     check_muni(INPUT_CSV, agent, municipality, override_date=date_override)
+
+if __name__ == "__main__":
+    clear()
+    run_muni() # replace with run_all to run checker on all municipalities
