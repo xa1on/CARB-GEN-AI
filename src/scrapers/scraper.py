@@ -79,9 +79,10 @@ class Scraper:
         """
         chrome_options = webdriver.ChromeOptions()
         chrome_options.add_argument("--log-level=3")
-
+        chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
         self.browser = webdriver.Chrome(options=chrome_options)
         self.wait= WebDriverWait(self.browser, TIMEOUT)
+        
 
 
         self.browser.set_window_size(1024, 1024)
@@ -107,6 +108,25 @@ class Scraper:
         self.browser.get(url)
         #self.wait_invisibility()
         return self
+
+    def scrape_status_code(self):
+        """
+        Returns status code of website
+
+        From stack overflow
+
+        https://stackoverflow.com/a/69758112
+        """
+        for entry in self.browser.get_log('performance'):
+            for k, v in entry.items():
+                if k == 'message' and 'status' in v:
+                    msg = json.loads(v)['message']['params']
+                    for mk, mv in msg.items():
+                        if mk == 'response':
+                            response_url = mv['url']
+                            response_status = mv['status']
+                            if response_url == self.browser.current_url:
+                                return response_status
 
     def search(self, search_term: str):
         """

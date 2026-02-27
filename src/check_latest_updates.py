@@ -4,10 +4,10 @@ from .scrapers import municode_scraper
 
 import csv
 
-INPUT_CSV = "data/datasets/2025 ARB Policy Map Ordinance Table - Copy of Master (Auto-Updates).csv"
+INPUT_CSV = "data/ord tables/2025 ARB Policy Map Ordinance Table - Copy of Master (Auto-Updates).csv"
 OUTPUT_FILE = "logs/latest_updates.csv"
-VERBOSE = False # false means it only outputs the names of the city-policy pairs that require updates, true means it logs every city policy pair it checks in addition to a requires update tag next to the ones that require updates.
-RUN_ALL = False # false means it inputs the user for a specific city to check while true starts checking every city in the database
+VERBOSE = True # false means it only outputs the names of the city-policy pairs that require updates, true means it logs every city policy pair it checks in addition to a requires update tag next to the ones that require updates.
+RUN_ALL = True # false means it inputs the user for a specific city to check while true starts checking every city in the database
 
 CSV_HEADER = ["Municipality", "County", "Policy Type", "Number", "Newest Update", "Link"]
 

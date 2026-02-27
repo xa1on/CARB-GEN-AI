@@ -10,6 +10,7 @@ Org: Urban Displacement Project: UC Berkeley / University of Toronto
 """
 
 from .scraper import *
+from selenium.common.exceptions import NoSuchElementException
 import time
 
 
@@ -24,7 +25,9 @@ SEARCH_IN_SEARCH_CSS = "#searchBox"
 SEARCH_RESULT_CSS = "div[class=search-result-body]"
 SEARCH_RESULT_COUNT_CSS = "h3[class=text-light]"
 PREVIOUS_VERSIONS_XPATH = "//button[@class='btn btn-primary btn-flat']"
+DISABLED_PREVIOUS_VERSIONS_XPATH = "//button[@class='btn btn-primary btn-flat disabled']"
 VERSION_BUTTON_XPATH = "//button[@class='btn btn-flat ink-reaction'][@ng-click='vm.jobClick(job)']"
+CONTENT_NOT_FOUND_XPATH = "//h2[@class='alert alert-danger']"
 
 class MuniCodeScraper(Scraper):
     home_url: str = "https://library.municode.com"
@@ -255,6 +258,11 @@ class MuniCodeScraper(Scraper):
         while none_found:
             none_found = False
             self.wait_visibility(TEXT_CSS)
+            try:
+                self.browser.find_element(By.XPATH, DISABLED_PREVIOUS_VERSIONS_XPATH) # button disabled, therefore no history
+                return []
+            except NoSuchElementException:
+                pass
             wait_xpath(PREVIOUS_VERSIONS_XPATH)
             # previous version button is super inconsistent for some reason
             found_options = []
@@ -282,6 +290,11 @@ class MuniCodeScraper(Scraper):
                     parts = current_name.split(' ')
                     date = Date.from_string(parts[0])
                     if stop and date < stop:
+                        return result
+                    status_code = self.scrape_status_code()
+                    print(status_code)
+                    if not (status_code == 200 or status_code == "200"):
+                        result.append(prev_date)
                         return result
                     current = self.scrape_text()
                     if current != prev:

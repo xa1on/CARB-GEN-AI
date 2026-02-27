@@ -107,7 +107,7 @@ def main():
                         except:
                             try:
                                 status_code = get_status_code(driver, links)
-                                if status_code != 200 and status_code != "200":
+                                if not (status_code == 200 or status_code == "200"):
                                     reason = f"is invalid/down ::{status_code}"
                                     log(f"""{row_index + 1}[{city}|{county}|{policy_type}] {reason}.""")
                                     log_csv([row_index + 1, city, county, policy_type, links, reason])
