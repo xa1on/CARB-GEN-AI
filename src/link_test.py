@@ -12,16 +12,22 @@ from selenium import webdriver
 
 CSV_FILE = "data/ord tables/2025 ARB Policy Map Ordinance Table - Copy of Master (Auto-Updates).csv"
 LINK_COLUMN = "Source"
-LOG_FILE = "result/broken links/log.txt"
+LOG_FILE = "logs/broken_links.csv"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0",
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
     'Accept-Language': 'en-US,en;q=0.5',
 }
 
+CSV_HEADER = ["Row", "Municipality", "County", "Policy Type", "Link", "Reason"]
+
 def log(text):
-    with open(LOG_FILE, 'a') as log:
-        log.write(text + '\n')
+    print(text)
+
+def log_csv(row: list) -> None:
+    with open(LOG_FILE, "a", encoding="utf-8", newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(row)
 
 
 def get_status_code(driver, url):
@@ -51,7 +57,11 @@ def main():
     options = webdriver.ChromeOptions()
     options.set_capability('goog:loggingPrefs', {'performance': 'ALL'}) # required to get response status through selenium
     driver = webdriver.Chrome(options=options)
-    open(LOG_FILE, 'w').close() # clear log
+    
+    with open(LOG_FILE, 'w', encoding="utf-8", newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(CSV_HEADER)
+
     with open(CSV_FILE, 'r', encoding="utf8") as file:
         reader = csv.reader(file)
         link_index = -1
@@ -73,11 +83,17 @@ def main():
                 if links:
                     if ' ' in links or '\n' in links:
                         if "http" in links[4:]:
-                            log(f"""{row_index + 1}[{city}|{county}|{policy_type}] likely contains multiple links.""")
+                            reason = "likely contains multiple links"
+                            log(f"""{row_index + 1}[{city}|{county}|{policy_type}] {reason}.""")
+                            log_csv([row_index + 1, city, county, policy_type, links, reason])
                         else:
-                            log(f"""{row_index + 1}[{city}|{county}|{policy_type}] is malformed. It contains a space/newline character.""")
+                            reason = "is malformed. It contains a space/newline character"
+                            log(f"""{row_index + 1}[{city}|{county}|{policy_type}] {reason}.""")
+                            log_csv([row_index + 1, city, county, policy_type, links, reason])
                     elif links[:4] != "http":
-                        log(f"""{row_index + 1}[{city}|{county}|{policy_type}] is likely missing "https://" or is a malformed link.""")
+                        reason = "is likely missing \"https://\" or is a malformed link"
+                        log(f"""{row_index + 1}[{city}|{county}|{policy_type}] {reason}.""")
+                        log_csv([row_index + 1, city, county, policy_type, links, reason])
                     else:
                         req = urllib.request.Request(links)
                         for header_type, value in HEADERS.items():
@@ -85,14 +101,20 @@ def main():
                         try:
                             status_code = urllib.request.urlopen(req).getcode()
                             if status_code != 200:
-                                log(f"""{row_index + 1}[{city}|{county}|{policy_type}] is invalid/down :{status_code}.""")
+                                reason = f"is invalid/down :{status_code}"
+                                log(f"""{row_index + 1}[{city}|{county}|{policy_type}] {reason}.""")
+                                log_csv([row_index + 1, city, county, policy_type, links, reason])
                         except:
                             try:
                                 status_code = get_status_code(driver, links)
                                 if status_code != 200 and status_code != "200":
-                                    log(f"""{row_index + 1}[{city}|{county}|{policy_type}] is invalid/down ::{status_code}.""")
+                                    reason = f"is invalid/down ::{status_code}"
+                                    log(f"""{row_index + 1}[{city}|{county}|{policy_type}] {reason}.""")
+                                    log_csv([row_index + 1, city, county, policy_type, links, reason])
                             except:
-                                log(f"""{row_index + 1}[{city}|{county}|{policy_type}] is invalid/down :::.""")
+                                reason = "is invalid/down :::"
+                                log(f"""{row_index + 1}[{city}|{county}|{policy_type}] {reason}.""")
+                                log_csv([row_index + 1, city, county, policy_type, links, reason])
                                 
                 
 
