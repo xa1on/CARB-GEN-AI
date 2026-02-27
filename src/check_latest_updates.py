@@ -5,17 +5,24 @@ from .scrapers import municode_scraper
 import csv
 
 INPUT_CSV = "data/datasets/2025 ARB Policy Map Ordinance Table - Copy of Master (Auto-Updates).csv"
-OUTPUT_FILE = "logs/latest_updates.txt"
+OUTPUT_FILE = "logs/latest_updates.csv"
 VERBOSE = False # false means it only outputs the names of the city-policy pairs that require updates, true means it logs every city policy pair it checks in addition to a requires update tag next to the ones that require updates.
 RUN_ALL = False # false means it inputs the user for a specific city to check while true starts checking every city in the database
 
+CSV_HEADER = ["Municipality", "County", "Policy Type", "Number", "Newest Update", "Link"]
+
 def clear():
-    open(OUTPUT_FILE, "w", encoding="utf-8").close()
+    with open(OUTPUT_FILE, "w", encoding="utf-8", newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(CSV_HEADER)
 
 def log(text: str) -> None:
-    print(text)
-    with open(OUTPUT_FILE, "a", encoding="utf-8") as f:
-        f.write(text)
+    print(text, end="")
+
+def log_csv(row: list) -> None:
+    with open(OUTPUT_FILE, "a", encoding="utf-8", newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(row)
 
 
 def check(agent: municode_scraper.MuniCodeScraper, city, county, policy_type, exists, number, header1, header2, header3, description, source, notes, date_checked):
@@ -38,7 +45,9 @@ def check_muni(csv_inp: str, agent: municode_scraper.MuniCodeScraper, muni: str)
             if line[0].upper() == muni.upper() and line[3] == 'Y':
                 checking = check(agent, *line)
                 if checking:
-                    log(f"{"Newest update: " if VERBOSE else ""}{line[0]}: {line[2]} - {line[4]} ({checking[0]})\n")
+                    update_date = checking[0].to_string() if hasattr(checking[0], "to_string") else str(checking[0])
+                    log(f"{"Newest update: " if VERBOSE else ""}{line[0]}: {line[2]} - {line[4]} ({update_date})\n")
+                    log_csv([line[0], line[1], line[2], line[4], update_date, line[9]])
 
 def check_all(csv_inp: str, agent: municode_scraper.MuniCodeScraper):
     with open(csv_inp, mode='r', encoding="utf8") as file:
@@ -47,7 +56,9 @@ def check_all(csv_inp: str, agent: municode_scraper.MuniCodeScraper):
             if line[3] == 'Y':
                 checking = check(agent, *line)
                 if checking:
-                    log(f"{"Newest update: " if VERBOSE else ""}{line[0]}: {line[2]} - {line[4]} ({checking[0]})\n")
+                    update_date = checking[0].to_string() if hasattr(checking[0], "to_string") else str(checking[0])
+                    log(f"{"Newest update: " if VERBOSE else ""}{line[0]}: {line[2]} - {line[4]} ({update_date})\n")
+                    log_csv([line[0], line[1], line[2], line[4], update_date, line[9]])
 
 def run_all():
     agent = municode_scraper.MuniCodeScraper()
