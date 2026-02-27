@@ -10,7 +10,7 @@ import urllib.request
 import json
 from selenium import webdriver
 
-CSV_FILE = "data/ord tables/2025 ARB Policy Map Ordinance Table - Los Angeles.csv"
+CSV_FILE = "data/ord tables/2025 ARB Policy Map Ordinance Table - Copy of Master (Auto-Updates).csv"
 LINK_COLUMN = "Source"
 LOG_FILE = "result/broken links/log.txt"
 HEADERS = {
@@ -56,12 +56,14 @@ def main():
         reader = csv.reader(file)
         link_index = -1
         row_count = sum(1 for _ in reader)
+        file.seek(0)
         for row_index, row in enumerate(reader):
-            print(f"{row_index + 1}/{row_count}")
+            print(f"{row_index + 1}/{row_count}: {(row_index + 1) / row_count}")
             if not row_index:
                 for item_index, item in enumerate(row):
                     if item == LINK_COLUMN:
                         link_index = item_index
+                        print(link_index)
                         break
             else:
                 city = row[0].strip()
