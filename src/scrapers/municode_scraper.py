@@ -293,7 +293,7 @@ class MuniCodeScraper(Scraper):
                         return result
                     status_code = self.scrape_status_code()
                     print(status_code)
-                    if not (status_code == 200 or status_code == "200"):
+                    if status_code != 200 and status_code != "200":
                         result.append(prev_date)
                         return result
                     current = self.scrape_text()
