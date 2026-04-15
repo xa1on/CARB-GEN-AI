@@ -289,13 +289,17 @@ class MuniCodeScraper(Scraper):
                     self.browser.execute_script("arguments[0].click();", option)
                     parts = current_name.split(' ')
                     date = Date.from_string(parts[0])
+                    print(date)
                     if stop and date < stop:
                         return result
+                    self.wait_ready()
                     status_code = self.scrape_status_code()
-                    print(status_code)
-                    if status_code != 200 and status_code != "200":
-                        result.append(prev_date)
-                        return result
+                    try:
+                        if (status_code != 200 and status_code != "200") or self.browser.find_element(By.XPATH, CONTENT_NOT_FOUND_XPATH):
+                            result.append(prev_date)
+                            return result
+                    except NoSuchElementException:
+                        pass
                     current = self.scrape_text()
                     if current != prev:
                         result.append(prev_date)

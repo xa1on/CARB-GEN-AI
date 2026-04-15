@@ -88,6 +88,9 @@ class Scraper:
         self.browser.set_window_size(1024, 1024)
         self.go(starting_url)
 
+    def wait_ready(self):
+        self.wait.until(lambda driver: driver.execute_script('return document.readyState') == 'complete')
+
     def wait_visibility(self, CSS: str):
         self.wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, CSS)))
         self.soup = BeautifulSoup(self.browser.page_source, "html.parser")
