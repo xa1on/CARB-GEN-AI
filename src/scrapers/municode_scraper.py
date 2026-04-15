@@ -257,7 +257,17 @@ class MuniCodeScraper(Scraper):
         prev_date = None
         while none_found:
             none_found = False
-            self.wait_visibility(TEXT_CSS)
+            try:
+                self.wait.until(
+                    lambda driver: driver.find_elements(By.CSS_SELECTOR, TEXT_CSS) or 
+                                   driver.find_elements(By.XPATH, CONTENT_NOT_FOUND_XPATH) or
+                                   "content not found" in driver.page_source.lower()
+                )
+                if self.browser.find_elements(By.XPATH, CONTENT_NOT_FOUND_XPATH) or "content not found" in self.browser.page_source.lower():
+                    return result
+            except Exception:
+                return result
+
             try:
                 self.browser.find_element(By.XPATH, DISABLED_PREVIOUS_VERSIONS_XPATH) # button disabled, therefore no history
                 return []
@@ -283,23 +293,39 @@ class MuniCodeScraper(Scraper):
                         return result
                     prev = self.scrape_text()
                     prev_date = date
+                    none_found = True
+                    break
                 elif current_name not in visited:
                     none_found = True
                     visited.add(current_name)
-                    self.browser.execute_script("arguments[0].click();", option)
                     parts = current_name.split(' ')
                     date = Date.from_string(parts[0])
                     print(date)
                     if stop and date < stop:
                         return result
-                    self.wait_ready()
-                    status_code = self.scrape_status_code()
+                    current_url = self.browser.current_url
+                    old_contents = self.browser.find_elements(By.CSS_SELECTOR, TEXT_CSS)
+                    old_element = old_contents[0] if old_contents else None
+
+                    self.browser.execute_script("arguments[0].click();", option)
+                    
                     try:
-                        if (status_code != 200 and status_code != "200") or self.browser.find_element(By.XPATH, CONTENT_NOT_FOUND_XPATH):
+                        self.wait.until(
+                            lambda driver: (driver.current_url != current_url) or 
+                                           (old_element and EC.staleness_of(old_element)(driver)) or
+                                           driver.find_elements(By.XPATH, CONTENT_NOT_FOUND_XPATH)
+                        )
+                        self.wait.until(
+                            lambda driver: driver.find_elements(By.CSS_SELECTOR, TEXT_CSS) or 
+                                           driver.find_elements(By.XPATH, CONTENT_NOT_FOUND_XPATH)
+                        )
+                        if self.browser.find_elements(By.XPATH, CONTENT_NOT_FOUND_XPATH):
                             result.append(prev_date)
                             return result
-                    except NoSuchElementException:
-                        pass
+                    except Exception:
+                        result.append(prev_date)
+                        return result
+
                     current = self.scrape_text()
                     if current != prev:
                         result.append(prev_date)
