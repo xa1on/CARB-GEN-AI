@@ -215,7 +215,7 @@ class MuniCodeScraper(Scraper):
                             width = current_col + item_w
                         if current_row + item_h > height:
                             for _ in range(current_row + item_h - height):
-                                filled.append([False for _ in width])
+                                filled.append([False for _ in range(width)])
                         for x in range(current_col, current_col + item_w):
                             for y in range(current_row, current_row + item_h):
                                 filled[y][x] = '|' + (stripped_splitter(item.text, "<br>") if x == current_col and y == current_row else '') # filling all spots where item sits
@@ -226,7 +226,8 @@ class MuniCodeScraper(Scraper):
                     result += '|' * width + "|\n" + seperator # inserting seperator if header doesn't exist
                 for row in filled:
                     for item in row:
-                        result += item
+                        if item:
+                            result += item
                     result += "|\n"
                     if head_row_exists:
                         result += seperator
