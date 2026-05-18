@@ -39,3 +39,10 @@
     - you can export the data as a csv through our website or through through google sheets
   - set `CSV_FILE` to the csv file path
   - run the file and it'll generate a text file containing all the municipalities that require update into path specified by `OUTPUT_FILE`
+
+- ```python -m src.check_latest_updates```
+  - get an input csv containing all municode link data
+    - you can export the data as a csv through our website or through through google sheets
+  - set `INPUT_CSV` to the csv file path
+  - set `RUN_ALL` If you'd like to run it for every municode link it finds in the csv file
+  - run the file and it'll generate an output csv in `OUTPUT_FILE`
