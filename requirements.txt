@@ -3,3 +3,7 @@ selenium
 google-genai
 python-dotenv
 scikit-learn
+pypdf
+pandas
+pyarrow
+tqdm
