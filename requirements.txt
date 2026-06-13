@@ -7,3 +7,6 @@ pypdf
 pandas
 pyarrow
 tqdm
+transformers
+torch
+accelerate
