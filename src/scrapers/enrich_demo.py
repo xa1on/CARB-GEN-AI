@@ -1,28 +1,26 @@
 """
-[Stage 2/3] extracted.parquet -> enriched.parquet
+[Diagnostic v5] Demo enrichment — prompt SYNCED with enrich_with_gemma.py (Stage 2).
 
-For each (Ord. No. ...) block, call local gemma-4-E2B-it to infer:
+Same model/decoding fixes as v4 (apply_chat_template, generation_config stop
+tokens, robust JSON parsing), but the prompt now matches production:
   subject, target_code, external_section, action_type, action_scope,
   current_status, confidence, evidence_quote
 
-Model loaded once (singleton). Checkpoints every CHECKPOINT_EVERY rows; resumes
-by char_offset. Refuses to resume on top of a different model's output.
+Does NOT touch the production enriched.parquet. Writes a full trace to:
+  result/ordinances/<pdf_stem>.demo.jsonl
 
-Layout:
-  input : result/ordinances/<pdf_stem>.extracted.parquet
-  output: result/ordinances/<pdf_stem>.enriched.parquet
-
-Script location: src/scrapers/enrich_with_gemma.py
+Script location: src/scrapers/enrich_demo.py
 """
 
 import json
+import random
 import re
 import sys
+import time
 from pathlib import Path
 
 import pandas as pd
 import torch
-from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
@@ -31,36 +29,21 @@ PDF_FILENAME = "Milpitas_CA_Code_of_Ordinances.pdf"
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 ORD_DIR = PROJECT_ROOT / "result" / "ordinances"
-INPUT_FILE = ORD_DIR / f"{Path(PDF_FILENAME).stem}.extracted.parquet"
-OUTPUT_FILE = ORD_DIR / f"{Path(PDF_FILENAME).stem}.enriched.parquet"
+EXTRACTED_FILE = ORD_DIR / f"{Path(PDF_FILENAME).stem}.extracted.parquet"
+ENRICHED_FILE  = ORD_DIR / f"{Path(PDF_FILENAME).stem}.enriched.parquet"
+DEMO_OUTPUT    = ORD_DIR / f"{Path(PDF_FILENAME).stem}.demo.jsonl"
+
+DEMO_N = 5
+SAMPLE_FROM = "random"   # "random" | "head" | "parse_error"
+RANDOM_SEED = 42
 
 MODEL_ID = "google/gemma-4-E2B-it"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 MAX_NEW_TOKENS = 1024
 CONTEXT_CHAR_LIMIT = 1500
-CHECKPOINT_EVERY = 50
 
 
-# --- model singleton ----------------------------------------------------
-_tokenizer = None
-_model = None
-
-
-def _load_model():
-    global _tokenizer, _model
-    if _tokenizer is None or _model is None:
-        print(f"Loading {MODEL_ID} on {DEVICE} (bfloat16)...")
-        _tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
-        _model = AutoModelForCausalLM.from_pretrained(
-            MODEL_ID,
-            torch_dtype=torch.bfloat16,
-            device_map=DEVICE,
-        )
-        _model.eval()
-    return _tokenizer, _model
-
-
-# --- prompt -------------------------------------------------------------
+# --- prompt (kept identical to enrich_with_gemma.py) --------------------
 USER_TEMPLATE = """You analyze US municipal code ordinance references and return strict JSON.
 
 Output ONLY a single JSON object with these exact keys (no reasoning, no explanation, no markdown):
@@ -124,17 +107,6 @@ def build_messages(row: pd.Series) -> list[dict]:
 
 
 # --- JSON extraction (robust to reasoning text before the JSON) ---------
-DEFAULT_RESPONSE = {
-    "subject": None,
-    "target_code": None,
-    "external_section": "",
-    "action_type": "unknown",
-    "action_scope": "unknown",
-    "current_status": "unknown",
-    "confidence": "low",
-    "evidence_quote": "",
-}
-
 JSON_FENCE_RE = re.compile(r"```(?:json)?|```")
 
 
@@ -154,48 +126,26 @@ def _all_balanced_objects(text: str) -> list[str]:
     return objs
 
 
-def _extract_json(text: str) -> dict:
+def extract_json(text: str) -> tuple[dict | None, str, str | None]:
     cleaned = JSON_FENCE_RE.sub("", text).strip()
     try:
         result = json.loads(cleaned)
         if isinstance(result, dict):
-            return result
+            return result, cleaned, None
     except json.JSONDecodeError:
         pass
-    for obj in reversed(_all_balanced_objects(cleaned)):
+    candidates = _all_balanced_objects(cleaned)
+    for obj in reversed(candidates):
         try:
             result = json.loads(obj)
             if isinstance(result, dict):
-                return result
+                return result, cleaned, None
         except json.JSONDecodeError:
             continue
-    raise ValueError("no parseable JSON object found")
-
-
-def call_gemma(messages: list[dict]) -> tuple[dict, str | None]:
-    tok, model = _load_model()
-    inputs = tok.apply_chat_template(
-        messages,
-        add_generation_prompt=True,
-        return_tensors="pt",
-        return_dict=True,
-    ).to(DEVICE)
-    prompt_len = inputs["input_ids"].shape[1]
-
-    with torch.no_grad():
-        out = model.generate(**inputs, max_new_tokens=MAX_NEW_TOKENS, do_sample=False)
-
-    gen_tokens = out[0][prompt_len:]
-    text = tok.decode(gen_tokens, skip_special_tokens=True)
-
-    try:
-        return _extract_json(text), None
-    except Exception as e:
-        return dict(DEFAULT_RESPONSE), f"{type(e).__name__}: {e} | raw={text[:200]!r}"
+    return None, cleaned, f"no parseable JSON object found among {len(candidates)} brace-blocks"
 
 
 # --- rule-based action detection (deterministic; overrides the LLM) -----
-# action_type must come from EXPLICIT statutory language, not model inference.
 _ACTION_PATTERNS = [
     ("repeal",  re.compile(r"repealed\s+in\s+its\s+entirety|is\s+hereby\s+repealed|is\s+repealed\b", re.I)),
     ("replace", re.compile(r"replaced\s+in\s+its\s+entirety|is\s+hereby\s+replaced|is\s+replaced\b", re.I)),
@@ -215,10 +165,9 @@ def _sentence_around(text: str, start: int, end: int) -> str:
 
 
 def detect_action(text: str) -> tuple[str | None, str | None, str | None]:
-    """Return (action_type, action_scope, evidence_sentence) or (None, None, None)."""
     if not text:
         return None, None, None
-    best = None  # (start, action, match)
+    best = None
     for act, rx in _ACTION_PATTERNS:
         m = rx.search(text)
         if m and (best is None or m.start() < best[0]):
@@ -230,8 +179,7 @@ def detect_action(text: str) -> tuple[str | None, str | None, str | None]:
     return act, scope, _sentence_around(text, m.start(), m.end())
 
 
-def resolve_action(row: pd.Series, resp: dict) -> dict:
-    """Rule-based action_type/scope/confidence/evidence; LLM keeps the descriptive fields."""
+def resolve_action(row: pd.Series, resp: dict | None) -> dict:
     ctx = " ".join(filter(None, [
         str(row.get("editor_note") or ""),
         str(row.get("code_section_header") or ""),
@@ -239,6 +187,7 @@ def resolve_action(row: pd.Series, resp: dict) -> dict:
         str(row.get("context_after") or "")[:CONTEXT_CHAR_LIMIT],
     ]))
     act, scope, sentence = detect_action(ctx)
+    resp = resp or {}
     if act:
         return {
             "action_type": act,
@@ -256,90 +205,128 @@ def resolve_action(row: pd.Series, resp: dict) -> dict:
     }
 
 
-# --- checkpoint helpers -------------------------------------------------
-def _load_done_offsets() -> set[int]:
-    if not OUTPUT_FILE.exists():
-        return set()
-    done = pd.read_parquet(OUTPUT_FILE, columns=["char_offset"])
-    return set(done["char_offset"].tolist())
-
-
-def _guard_stale_checkpoint() -> None:
-    if not OUTPUT_FILE.exists():
-        return
-    try:
-        modes = pd.read_parquet(OUTPUT_FILE, columns=["llm_mode"])["llm_mode"].unique()
-    except Exception:
-        modes = []
-    stale = [m for m in modes if m != MODEL_ID]
-    if stale:
-        sys.exit(
-            f"Existing {OUTPUT_FILE.name} was produced by {list(modes)}, not {MODEL_ID}.\n"
-            f"Delete it before re-running:\n  {OUTPUT_FILE}"
-        )
-
-
-def _save_checkpoint(enriched_rows: list[dict]) -> None:
-    new_df = pd.DataFrame(enriched_rows)
-    if OUTPUT_FILE.exists():
-        existing = pd.read_parquet(OUTPUT_FILE)
-        combined = pd.concat([existing, new_df], ignore_index=True)
-        combined = combined.drop_duplicates(subset=["char_offset"], keep="last")
-    else:
-        combined = new_df
-    combined.to_parquet(OUTPUT_FILE, engine="pyarrow", index=False)
+# --- sample picking -----------------------------------------------------
+def pick_rows(extracted_df: pd.DataFrame) -> pd.DataFrame:
+    if SAMPLE_FROM == "head":
+        return extracted_df.head(DEMO_N).copy()
+    if SAMPLE_FROM == "random":
+        n = min(DEMO_N, len(extracted_df))
+        return extracted_df.sample(n=n, random_state=RANDOM_SEED).copy()
+    if SAMPLE_FROM == "parse_error":
+        if not ENRICHED_FILE.exists():
+            print(f"[warn] {ENRICHED_FILE} not found, falling back to random.")
+            n = min(DEMO_N, len(extracted_df))
+            return extracted_df.sample(n=n, random_state=RANDOM_SEED).copy()
+        enriched = pd.read_parquet(ENRICHED_FILE)
+        failed_offsets = enriched.loc[enriched["parse_error"].notna(), "char_offset"].tolist()
+        if not failed_offsets:
+            print("[warn] no parse_error rows found, falling back to random.")
+            n = min(DEMO_N, len(extracted_df))
+            return extracted_df.sample(n=n, random_state=RANDOM_SEED).copy()
+        rng = random.Random(RANDOM_SEED)
+        sample_offsets = rng.sample(failed_offsets, min(DEMO_N, len(failed_offsets)))
+        return extracted_df[extracted_df["char_offset"].isin(sample_offsets)].copy()
+    sys.exit(f"Unknown SAMPLE_FROM: {SAMPLE_FROM}")
 
 
 # --- main ---------------------------------------------------------------
 def main() -> None:
-    if not INPUT_FILE.exists():
-        sys.exit(f"Input not found: {INPUT_FILE}. Run extract_ordinances.py first.")
+    if not EXTRACTED_FILE.exists():
+        sys.exit(f"Input not found: {EXTRACTED_FILE}. Run extract_ordinances.py first.")
 
-    _guard_stale_checkpoint()
+    extracted_df = pd.read_parquet(EXTRACTED_FILE)
+    rows = pick_rows(extracted_df).reset_index(drop=True)
 
-    df = pd.read_parquet(INPUT_FILE)
-    done_offsets = _load_done_offsets()
-    remaining = df[~df["char_offset"].isin(done_offsets)]
+    print(f"Demo run: {len(rows)} blocks (SAMPLE_FROM={SAMPLE_FROM})")
+    print(f"torch.cuda.is_available() = {torch.cuda.is_available()}")
+    print(f"Loading {MODEL_ID} on {DEVICE} (bfloat16)...")
+    tok = AutoTokenizer.from_pretrained(MODEL_ID)
+    model = AutoModelForCausalLM.from_pretrained(
+        MODEL_ID,
+        torch_dtype=torch.bfloat16,
+        device_map=DEVICE,
+    )
+    model.eval()
+    print(f"Writing trace to {DEMO_OUTPUT}\n")
 
-    if done_offsets:
-        print(f"Resuming: {len(done_offsets)} already done, {len(remaining)} remaining.")
-    if remaining.empty:
-        print("All rows already enriched.")
-        return
+    with open(DEMO_OUTPUT, "w", encoding="utf-8") as fout:
+        for idx, row in rows.iterrows():
+            print("=" * 80)
+            print(f"[{idx + 1}/{len(rows)}] char_offset={row['char_offset']}")
+            print(f"  block        : {row['ordinance_block']}")
+            print(f"  parse_status : {row.get('ordinance_parse_status')}")
+            print(f"  section_hdr  : {row['code_section_header']}")
+            print(f"  title/chap # : {row.get('code_title_num')} / {row.get('code_chapter_num')}")
+            print(f"  editor_note  : {(row['editor_note'] or '(none)')[:100]}")
 
-    _load_model()
+            messages = build_messages(row)
+            inputs = tok.apply_chat_template(
+                messages,
+                add_generation_prompt=True,
+                return_tensors="pt",
+                return_dict=True,
+            ).to(DEVICE)
+            prompt_len = inputs["input_ids"].shape[1]
 
-    enriched_rows: list[dict] = []
-    for _, row in tqdm(remaining.iterrows(), total=len(remaining), desc="Enriching (gemma-4-E2B-it)", unit="block"):
-        resp, err = call_gemma(build_messages(row))
-        action = resolve_action(row, resp)  # deterministic action_type/scope/confidence/evidence
-        enriched_rows.append({
-            **row.to_dict(),
-            "subject": resp.get("subject"),
-            "target_code": resp.get("target_code"),
-            "external_section": resp.get("external_section", ""),
-            "action_type": action["action_type"],
-            "action_scope": action["action_scope"],
-            "action_basis": action["action_basis"],
-            "current_status": resp.get("current_status", "unknown"),
-            "confidence": action["confidence"],
-            "evidence_quote": action["evidence_quote"],
-            "parse_error": err,
-            "llm_mode": MODEL_ID,
-        })
-        if len(enriched_rows) % CHECKPOINT_EVERY == 0:
-            _save_checkpoint(enriched_rows)
-            enriched_rows = []
+            t0 = time.time()
+            with torch.no_grad():
+                out = model.generate(**inputs, max_new_tokens=MAX_NEW_TOKENS, do_sample=False)
+            elapsed = time.time() - t0
 
-    if enriched_rows:
-        _save_checkpoint(enriched_rows)
+            gen_tokens = out[0][prompt_len:]
+            raw_output = tok.decode(gen_tokens, skip_special_tokens=True)
+            n_gen = gen_tokens.shape[0]
 
-    final = pd.read_parquet(OUTPUT_FILE)
-    n_err = final["parse_error"].notna().sum()
-    print(f"\nRows enriched:  {len(final)}")
-    print(f"Parse errors:   {n_err}")
-    print(f"Model:          {MODEL_ID}")
-    print(f"Saved to:       {OUTPUT_FILE}")
+            parsed, cleaned, err = extract_json(raw_output)
+            action = resolve_action(row, parsed)  # deterministic action fields
+
+            print(f"  gen_tokens   : {n_gen}   inference_s: {elapsed:.2f}   parse_ok: {parsed is not None}")
+            if parsed is None:
+                print(f"  parse_error  : {err}")
+                print(f"  raw_output   : {raw_output[:400]!r}")
+            else:
+                print(f"  subject          : {parsed.get('subject')}")
+                print(f"  target_code      : {parsed.get('target_code')}")
+                print(f"  external_section : {parsed.get('external_section')}")
+            # action fields are rule-based (shown for every row, parsed or not)
+            print(f"  action_type      : {action['action_type']}  (RULE-BASED)")
+            print(f"  action_scope     : {action['action_scope']}")
+            print(f"  action_basis     : {action['action_basis'][:90]}")
+            print(f"  confidence       : {action['confidence']}")
+            if parsed is not None:
+                print(f"  current_status   : {parsed.get('current_status')}")
+
+            trace = {
+                "block_index": int(idx),
+                "char_offset": int(row["char_offset"]),
+                "ordinance_block": row["ordinance_block"],
+                "ordinance_parse_status": row.get("ordinance_parse_status"),
+                "code_section_header": row["code_section_header"],
+                "code_chapter_header": row["code_chapter_header"],
+                "code_title_header": row["code_title_header"],
+                "code_title_num": row.get("code_title_num"),
+                "code_chapter_num": row.get("code_chapter_num"),
+                "code_section_num": row.get("code_section_num"),
+                "editor_note": row["editor_note"],
+                "prompt_token_len": int(prompt_len),
+                "gen_token_len": int(n_gen),
+                "inference_seconds": round(elapsed, 3),
+                "raw_output": raw_output,
+                "cleaned_text": cleaned,
+                "parse_success": parsed is not None,
+                "llm_result": parsed,
+                "rule_action_type": action["action_type"],
+                "rule_action_scope": action["action_scope"],
+                "rule_action_basis": action["action_basis"],
+                "rule_confidence": action["confidence"],
+                "rule_evidence_quote": action["evidence_quote"],
+                "parse_error": err,
+            }
+            fout.write(json.dumps(trace, ensure_ascii=False) + "\n")
+            fout.flush()
+
+    print("=" * 80)
+    print(f"\nDone. Trace saved to: {DEMO_OUTPUT}")
 
 
 if __name__ == "__main__":

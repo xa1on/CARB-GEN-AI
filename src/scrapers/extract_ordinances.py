@@ -1,16 +1,20 @@
 """
 [Stage 1/3] PDF -> extracted.parquet
 
-Reads a municipal code PDF, finds every (Ord. No. ...) block,
-and for each block records:
-  - the full block text
-  - the ordered list of ordinances inside (newest first as written)
-  - the surrounding code structure (title / chapter / section headings)
+Finds every (Ord. No. ...) block and records, per block:
+  - full block text + ordered ordinance entries (newest first as written)
+  - ordinance_parse_status: ok | partial | truncated | failed
+        ok        : balanced block, every "Ord." mention parsed WITH a date
+        partial   : balanced block, but some mention/date missing
+        truncated : opening "(Ord. No." with NO balanced closing ")"
+        failed    : block found but zero parseable ordinance entries
+  - code structure: title/chapter/section header TEXT (canonical-format only)
+    plus title/chapter/section NUMBERS parsed from the section code (reliable)
   - context_before / context_after (heading-bounded)
-  - the nearest editor's note above (if any)
+  - nearest editor's note above (if any)
 
-One row per (Ord. No. ...) block. Does NOT call any LLM.
-Does NOT explode by ordinance (that happens in stage 3).
+One row per block (truncated/failed blocks ARE kept, for auditability).
+No LLM here. No per-ordinance explosion (that is Stage 3).
 
 Layout (relative to project root CARB-GEN-AI/):
   input : data/<PDF_FILENAME>
@@ -37,24 +41,36 @@ INPUT_PDF = PROJECT_ROOT / "data" / PDF_FILENAME
 OUTPUT_DIR = PROJECT_ROOT / "result" / "ordinances"
 OUTPUT_FILE = OUTPUT_DIR / f"{INPUT_PDF.stem}.extracted.parquet"
 
-# --- regex --------------------------------------------------------------
-# A parenthesized block beginning with "Ord. No." -- non-greedy, until ).
-BLOCK_RE = re.compile(r"\(Ord\.\s*No\.[^)]*\)", re.IGNORECASE)
+TRUNC_WINDOW = 400  # chars to scan for an unclosed (truncated) block
 
-# One ordinance entry inside such a block.
-# Captures: ord_no, ord_section (optional), date (M/D/YY or M/D/YYYY).
+# --- regex --------------------------------------------------------------
+# Opening of a block. "(Ord. No." only appears at true block starts
+# (inner entries are written "; Ord. No." with no leading paren).
+OPEN_RE = re.compile(r"\(Ord\.\s*No\.", re.IGNORECASE)
+
+# Full balanced block, allowing ONE level of inner parens like "(B)".
+BLOCK_RE = re.compile(r"\(Ord\.\s*No\.(?:[^()]|\([^()]*\))*\)", re.IGNORECASE)
+
+# One ordinance entry. "No." optional; optional "(B)" designation;
+# greedy section capture; date optional (so partial/truncated still represented).
 ORD_ENTRY_RE = re.compile(
-    r"Ord\.\s*No\.\s*([\d.]+)"           # ord number
-    r"(?:\s*,\s*§\s*([^,;)]+?))?"        # optional "§ X"
-    r"\s*,\s*(\d{1,2}/\d{1,2}/\d{2,4})", # date
+    r"Ord\.\s*(?:No\.\s*)?(\d[\d.]*)"
+    r"(?:\s*\([A-Za-z]\))?"
+    r"(?:\s*,\s*§+\s*([^,;)]+))?"
+    r"(?:\s*,\s*(\d{1,2}/\d{1,2}/\d{2,4}))?",
     re.IGNORECASE,
 )
+ORD_MENTION_RE = re.compile(r"Ord\.", re.IGNORECASE)
 
-# Heading patterns. Order matters: title > chapter > section.
-# We match on a full line.
-TITLE_RE = re.compile(r"^\s*(TITLE\s+[IVXLCDM\d]+[^\n]*)", re.IGNORECASE | re.MULTILINE)
-CHAPTER_RE = re.compile(r"^\s*(CHAPTER\s+[\w\d.\-]+[^\n]*)", re.IGNORECASE | re.MULTILINE)
-# Section heading: "I-4-3.01" style OR "Sec. 4-3.01" OR "Section 4-3.01"
+# Canonical headers ONLY. " - " + UPPERCASE name separates real headers from body.
+TITLE_RE = re.compile(
+    r"^\s*(Title\s+[IVXLCDM]+\s+-\s+[A-Z][A-Z0-9 ,&'/().-]*?)\s*$", re.MULTILINE
+)
+CHAPTER_RE = re.compile(
+    r"^\s*(Chapter\s+\d+[A-Z]?\s+-\s+[A-Z][A-Z0-9 ,&'/().-]*?)\s*$", re.MULTILINE
+)
+
+# Section boundary for context windowing (kept broad on purpose).
 SECTION_RE = re.compile(
     r"^\s*("
     r"[IVXLCDM]+-\d+-\d+(?:\.\d+)?[^\n]*"
@@ -64,7 +80,13 @@ SECTION_RE = re.compile(
     re.MULTILINE,
 )
 
-# Editor's note paragraph -- starts with "Editor's note" (curly or straight quote, em-dash or hyphen)
+# Section CODE parser: "XI-10-63.06" -> (XI, 10, 63.06). Reliable title/chapter.
+SECTION_CODE_RE = re.compile(r"^\s*([IVXLCDM]+)-(\d+)-([\d.]+)\b")
+
+# Fallback: parse the title/chapter NUMBER from a canonical header line.
+TITLE_NUM_RE = re.compile(r"^\s*Title\s+([IVXLCDM]+)\s+-", re.IGNORECASE)
+CHAPTER_NUM_RE = re.compile(r"^\s*Chapter\s+(\d+[A-Z]?)\s+-", re.IGNORECASE)
+
 EDITOR_NOTE_RE = re.compile(
     r"(Editor['\u2019]s\s+note[\u2014\-\u2013][^\n]*(?:\n(?!\s*\n)[^\n]*)*)",
     re.IGNORECASE,
@@ -73,7 +95,6 @@ EDITOR_NOTE_RE = re.compile(
 
 # --- helpers ------------------------------------------------------------
 def _last_match_before(pattern: re.Pattern, text: str, offset: int) -> str | None:
-    """Return the last match of pattern in text[:offset], or None."""
     last = None
     for m in pattern.finditer(text, 0, offset):
         last = m
@@ -81,11 +102,6 @@ def _last_match_before(pattern: re.Pattern, text: str, offset: int) -> str | Non
 
 
 def _section_window(text: str, offset: int) -> tuple[int, int]:
-    """
-    Return (start, end) char offsets of the section containing `offset`.
-    start = end of nearest section heading before `offset` (or 0)
-    end   = start of next section heading after `offset` (or len(text))
-    """
     start = 0
     for m in SECTION_RE.finditer(text, 0, offset):
         start = m.end()
@@ -97,25 +113,51 @@ def _section_window(text: str, offset: int) -> tuple[int, int]:
 
 
 def _nearest_editor_note(text: str, section_start: int, block_offset: int) -> str | None:
-    """Find an editor's note between section_start and block_offset (closest to block_offset)."""
     last = None
     for m in EDITOR_NOTE_RE.finditer(text, section_start, block_offset):
         last = m
     return last.group(1).strip() if last else None
 
 
-def parse_ord_sequence(block: str) -> list[dict]:
-    """Extract ordered ordinance entries from a (...) block. Order preserved (newest first)."""
+def parse_section_code(header: str | None) -> tuple[str | None, str | None, str | None]:
+    if not header:
+        return None, None, None
+    m = SECTION_CODE_RE.match(header)
+    if not m:
+        return None, None, None
+    return m.group(1), m.group(2), m.group(3)
+
+
+def _num_from(pattern: re.Pattern, header: str | None) -> str | None:
+    if not header:
+        return None
+    m = pattern.match(header)
+    return m.group(1) if m else None
+
+
+def parse_ord_sequence(block: str) -> tuple[list[dict], int]:
     out = []
     for m in ORD_ENTRY_RE.finditer(block):
         out.append(
             {
                 "ord_no": m.group(1).rstrip("."),
                 "ord_section": (m.group(2) or "").strip() or None,
-                "date_raw": m.group(3),
+                "date_raw": m.group(3),  # may be None
             }
         )
-    return out
+    ord_mentions = len(ORD_MENTION_RE.findall(block))
+    return out, ord_mentions
+
+
+def classify_status(entries: list[dict], ord_mentions: int, truncated: bool) -> str:
+    if not entries:
+        return "failed"
+    if truncated:
+        return "truncated"
+    with_date = sum(1 for e in entries if e["date_raw"])
+    if len(entries) == ord_mentions and with_date == len(entries):
+        return "ok"
+    return "partial"
 
 
 # --- main ---------------------------------------------------------------
@@ -135,50 +177,74 @@ def main() -> None:
     full_text = "\n".join(parts)
 
     rows = []
-    seen_blocks: set[tuple[str, int]] = set()  # dedupe by (block_text, char_offset)
+    seen: set[tuple[str, int]] = set()
+    openings = list(OPEN_RE.finditer(full_text))
 
-    for m in tqdm(list(BLOCK_RE.finditer(full_text)), desc="Parsing blocks", unit="block"):
-        block = m.group(0)
-        offset = m.start()
+    for om in tqdm(openings, desc="Parsing blocks", unit="block"):
+        offset = om.start()
+        bm = BLOCK_RE.match(full_text, offset)  # anchored at this opening
+        if bm:
+            block = bm.group(0)
+            truncated = False
+            block_end = bm.end()
+        else:
+            # unclosed -> truncated: take a bounded snippet (to next newline / window)
+            nl = full_text.find("\n", offset)
+            if nl == -1 or nl - offset > TRUNC_WINDOW:
+                nl = min(offset + TRUNC_WINDOW, len(full_text))
+            block = full_text[offset:nl].strip()
+            truncated = True
+            block_end = nl
+
         key = (block, offset)
-        if key in seen_blocks:
+        if key in seen:
             continue
-        seen_blocks.add(key)
+        seen.add(key)
 
-        ord_sequence = parse_ord_sequence(block)
-        if not ord_sequence:
-            continue
+        ord_sequence, ord_mentions = parse_ord_sequence(block)
+        parse_status = classify_status(ord_sequence, ord_mentions, truncated)
 
         sec_start, sec_end = _section_window(full_text, offset)
-
-        # headings: title and chapter come from anywhere above offset; section from immediately above
         title_header = _last_match_before(TITLE_RE, full_text, offset)
         chapter_header = _last_match_before(CHAPTER_RE, full_text, offset)
-        # section header: match starting from sec_start backwards is wrong; we want the heading itself.
         section_header = None
         for sm in SECTION_RE.finditer(full_text, 0, offset):
             section_header = sm.group(1).strip()
-        # context: between section heading and block, then block to next section
-        context_before = full_text[sec_start:offset].strip()
-        context_after = full_text[m.end():sec_end].strip()
+        # title/chapter number: section code first, then header-text fallback
+        t_code, c_code, s_code = parse_section_code(section_header)
+        title_num = t_code or _num_from(TITLE_NUM_RE, title_header)
+        chapter_num = c_code or _num_from(CHAPTER_NUM_RE, chapter_header)
+        section_num = s_code
 
+        context_before = full_text[sec_start:offset].strip()
+        context_after = full_text[block_end:sec_end].strip()
         editor_note = _nearest_editor_note(full_text, sec_start, offset)
 
-        try:
-            first_ord_float = float(ord_sequence[0]["ord_no"].rstrip("."))
-        except ValueError:
+        if ord_sequence:
+            try:
+                first_ord_float = float(ord_sequence[0]["ord_no"].rstrip("."))
+            except ValueError:
+                first_ord_float = float("inf")
+            first_ord_no = ord_sequence[0]["ord_no"]
+        else:
             first_ord_float = float("inf")
+            first_ord_no = None
 
         rows.append(
             {
+                "block_index": len(rows),
                 "ordinance_block": block,
-                "first_ord_no": ord_sequence[0]["ord_no"],
+                "first_ord_no": first_ord_no,
                 "first_ord_no_float": first_ord_float,
                 "ord_sequence_json": json.dumps(ord_sequence, ensure_ascii=False),
                 "n_ords_in_block": len(ord_sequence),
+                "ordinance_parse_status": parse_status,
                 "code_title_header": title_header,
                 "code_chapter_header": chapter_header,
                 "code_section_header": section_header,
+                "code_title_num": title_num,
+                "code_chapter_num": chapter_num,
+                "code_section_num": section_num,
                 "context_before": context_before,
                 "context_after": context_after,
                 "editor_note": editor_note,
@@ -189,9 +255,12 @@ def main() -> None:
     df = pd.DataFrame(rows).sort_values("first_ord_no_float", kind="stable").reset_index(drop=True)
     df.to_parquet(OUTPUT_FILE, engine="pyarrow", index=False)
 
+    counts = df["ordinance_parse_status"].value_counts().to_dict() if len(df) else {}
     print(f"\nPDF total text lines:           {total_lines}")
-    print(f"Ordinance blocks (raw matches): {len(list(BLOCK_RE.finditer(full_text)))}")
+    print(f"Block openings found:           {len(openings)}")
     print(f"Unique blocks saved:            {len(df)}")
+    for st in ("ok", "partial", "truncated", "failed"):
+        print(f"  {st:<10}: {counts.get(st, 0)}")
     print(f"Saved to:                       {OUTPUT_FILE}")
 
 
