@@ -172,6 +172,19 @@ def _extract_json(text: str) -> dict:
     raise ValueError("no parseable JSON object found")
 
 
+def _as_str(v) -> str | None:
+    """Coerce LLM field to a flat string. Lists/dicts (occasional Gemma slip) become joined / json."""
+    if v is None:
+        return None
+    if isinstance(v, str):
+        return v
+    if isinstance(v, list):
+        return "; ".join(_as_str(x) or "" for x in v)
+    if isinstance(v, dict):
+        return json.dumps(v, ensure_ascii=False)
+    return str(v)
+
+
 def call_gemma(messages: list[dict]) -> tuple[dict, str | None]:
     tok, model = _load_model()
     inputs = tok.apply_chat_template(
@@ -281,13 +294,21 @@ def _guard_stale_checkpoint() -> None:
 
 def _save_checkpoint(enriched_rows: list[dict]) -> None:
     new_df = pd.DataFrame(enriched_rows)
-    if OUTPUT_FILE.exists():
-        existing = pd.read_parquet(OUTPUT_FILE)
-        combined = pd.concat([existing, new_df], ignore_index=True)
-        combined = combined.drop_duplicates(subset=["char_offset"], keep="last")
-    else:
-        combined = new_df
-    combined.to_parquet(OUTPUT_FILE, engine="pyarrow", index=False)
+    try:
+        if OUTPUT_FILE.exists():
+            existing = pd.read_parquet(OUTPUT_FILE)
+            combined = pd.concat([existing, new_df], ignore_index=True)
+            combined = combined.drop_duplicates(subset=["char_offset"], keep="last")
+        else:
+            combined = new_df
+        combined.to_parquet(OUTPUT_FILE, engine="pyarrow", index=False)
+    except Exception as e:
+        # don't lose the work: dump this batch to a side-file and keep going
+        side = OUTPUT_FILE.with_suffix(".rescue.jsonl")
+        with open(side, "a", encoding="utf-8") as f:
+            for r in enriched_rows:
+                f.write(json.dumps(r, default=str, ensure_ascii=False) + "\n")
+        print(f"\n[warn] checkpoint write failed ({e}); appended {len(enriched_rows)} rows to {side}")
 
 
 # --- main ---------------------------------------------------------------
@@ -315,15 +336,15 @@ def main() -> None:
         action = resolve_action(row, resp)  # deterministic action_type/scope/confidence/evidence
         enriched_rows.append({
             **row.to_dict(),
-            "subject": resp.get("subject"),
-            "target_code": resp.get("target_code"),
-            "external_section": resp.get("external_section", ""),
+            "subject": _as_str(resp.get("subject")),
+            "target_code": _as_str(resp.get("target_code")),
+            "external_section": _as_str(resp.get("external_section", "")) or "",
             "action_type": action["action_type"],
             "action_scope": action["action_scope"],
             "action_basis": action["action_basis"],
-            "current_status": resp.get("current_status", "unknown"),
+            "current_status": _as_str(resp.get("current_status", "unknown")) or "unknown",
             "confidence": action["confidence"],
-            "evidence_quote": action["evidence_quote"],
+            "evidence_quote": _as_str(action["evidence_quote"]) or "",
             "parse_error": err,
             "llm_mode": MODEL_ID,
         })
