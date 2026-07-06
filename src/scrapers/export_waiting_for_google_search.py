@@ -1,4 +1,6 @@
 """
+[PolicyMap Stage 4/7] enriched.csv -> waiting_for_google_search.csv
+
 Export rows that still have no adopted_date after Stage 2 enrichment.
 
 Purpose:
