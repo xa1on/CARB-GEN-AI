@@ -10,3 +10,20 @@ tqdm
 transformers
 torch
 accelerate
+
+# web fetching
+requests
+cloudscraper
+curl_cffi
+
+# PDF parsing (optional but recommended)
+pymupdf
+
+# JS-rendered pages (optional, for Municode fallback)
+playwright
+
+# Selenium helper
+webdriver-manager
+
+# 4-bit quantisation for Gemma (optional)
+bitsandbytes
